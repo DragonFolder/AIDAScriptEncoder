@@ -2,6 +2,8 @@
 
 A small web page that turns text into **AIDAScript**, a constructed writing system made of straight strokes, and lets you download the result as an **SVG** or **PNG** image.
 
+**Try it here: https://dragonfolder.github.io/AIDAScriptEncoder/**
+
 Type into the text box and the drawing updates as you type.
 
 ## Features
@@ -15,12 +17,11 @@ Type into the text box and the drawing updates as you type.
 
 ## Getting started
 
-There is nothing to install or build. It's plain HTML, CSS and JavaScript.
+Open **https://dragonfolder.github.io/AIDAScriptEncoder/** in any modern web browser. There's nothing to install.
 
-1. Clone or download this repository.
-2. Open `index.html` in a web browser.
-
-The page loads Bootstrap from a CDN, so it needs an internet connection to be styled. Without one it still works, but looks plain.
+1. Type your text into the **Text** box.
+2. Adjust the look under **Advanced settings** if you like.
+3. Click **Download SVG** or **Download PNG** to save the image.
 
 ## How AIDAScript works
 
