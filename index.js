@@ -216,9 +216,13 @@ function firstLetterY(ch, spaces){
 }
 
 // First letter of a new word: exactly one lineSize of empty space per space,
-// from the bottom of the previous word's last character to the top of this one
+// from the bottom of the previous word's last character to the top of this one.
+// If that leaves the two middles only one lineSize apart (neither has a stroke reaching
+// into the gap), the words look too close: add another half lineSize.
 function wordGapY(previousCh, previousY, ch, spaces){
-  return previousY + letterBottom(previousCh) + spaces - letterTop(ch);
+  let y = previousY + letterBottom(previousCh) + spaces - letterTop(ch);
+  if (y - previousY == 1) y += 0.5;
+  return y;
 }
 
 // Punctuation goes below everything placed so far on the line, with half a lineSize of empty space

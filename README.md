@@ -74,7 +74,7 @@ Letters are stacked so their strokes connect naturally, without crossing in the 
 - Strokes from different letters may **meet at their tips**, and may **cross exactly at their middles** (an X shape). Any other crossing or overlap pushes the letter further down.
 - When a letter's **S** stroke lies exactly on the next letter's **N** stroke, a short extra line is drawn beside them to show the overlap. It goes on the right, moves to the left if the right is crossed, and becomes a diagonal if both sides are.
 - When three letters would end up spaced unevenly (half a step, then a big jump), they're spaced a full step apart instead.
-- A **space** leaves exactly one step of empty space between words.
+- A **space** leaves one step of empty space between words. If that would put the two letters' middles only one step apart, half a step more is added so the words don't look too close.
 - **Punctuation** has half a step of empty space above and below it.
 
 ## Advanced settings
