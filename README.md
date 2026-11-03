@@ -4,34 +4,21 @@ A small web page that turns text into **AIDAScript**, a constructed writing syst
 
 **Try it here: https://dragonfolder.github.io/AIDAScriptEncoder/**
 
-Type into the text box and the drawing updates as you type.
+Type into the text box and the drawing updates as you type. There's nothing to install.
 
 ## Features
 
-- **Live preview** of the text as AIDAScript, drawn as vector graphics
-- **Download** the drawing as an SVG or a PNG
-- **Zoom** the preview in and out (25%–400%) without changing the downloaded size
-- **Automatic wrapping**: long lines continue in a new column, with words kept whole
-- **Advanced settings** (hidden by default): padding, line size, line spacing, maximum column height, line color and background color
-- Dark interface with teal accents, built with [Bootstrap 5](https://getbootstrap.com/)
-
-## Getting started
-
-Open **https://dragonfolder.github.io/AIDAScriptEncoder/** in any modern web browser. There's nothing to install.
-
-1. Type your text into the **Text** box.
-2. Adjust the look under **Advanced settings** if you like.
-3. Click **Download SVG** or **Download PNG** to save the image.
+- Live preview, with zoom (25%–400%)
+- Download as SVG or PNG
+- Long lines wrap into new columns, keeping words whole
+- Advanced settings for size, spacing, colors and layout
+- An experimental **compact** layout that packs the text into a tight, round or square blob
 
 ## How AIDAScript works
 
-### Columns
+Each line of text becomes a **column**, read from top to bottom. Columns go from left to right.
 
-Each line of text becomes a **column**, read from **top to bottom**. Columns are placed from left to right.
-
-### Letters
-
-Every letter is **two strokes** going out from the letter's middle point. Each stroke points in one of eight directions:
+Every letter is **two strokes** going out from its middle point, each in one of eight directions. Upper and lower case look the same.
 
 ```
 NW  N  NE
@@ -40,8 +27,6 @@ W — · — E
   / | \
 SW  S  SE
 ```
-
-Upper and lower case look the same.
 
 | Letter | Strokes | Letter | Strokes | Letter | Strokes | Letter | Strokes |
 |---|---|---|---|---|---|---|---|
@@ -53,52 +38,41 @@ Upper and lower case look the same.
 | f | E, S | m | E, SW | | | y | NW, E |
 | g | SE, S | n | SE, SW | | | z | SE, E |
 
-### Punctuation
+Letters are stacked so their strokes connect without crossing in the wrong places. Words are separated by a gap.
 
-Punctuation marks are small, half-size shapes that stand apart from the letters and never touch them.
+Punctuation marks are small shapes that stand apart and never touch anything:
 
-| Mark | Shape |
-|---|---|
-| `.` | `+` |
-| `,` | `/` |
-| `'` | `—` |
-| `"` | `=` |
-| `?` | a hook: top bar, diagonal to the middle, then down |
-| `!` | `‡` |
-
-### Spacing rules
-
-Letters are stacked so their strokes connect naturally, without crossing in the wrong places:
-
-- A letter moves **half a step** down from the previous one when their strokes wouldn't touch, and a **full step** otherwise.
-- Strokes from different letters may **meet at their tips**, and may **cross exactly at their middles** (an X shape). Any other crossing or overlap pushes the letter further down.
-- When a letter's **S** stroke lies exactly on the next letter's **N** stroke, a short extra line is drawn beside them to show the overlap. It goes on the right, moves to the left if the right is crossed, and becomes a diagonal if both sides are.
-- When three letters would end up spaced unevenly (half a step, then a big jump), they're spaced a full step apart instead.
-- A **space** leaves one step of empty space between words. If that would put the two letters' middles only one step apart, half a step more is added so the words don't look too close.
-- **Punctuation** has half a step of empty space above and below it.
+| Mark | `.` | `,` | `'` | `"` | `?` | `!` |
+|---|---|---|---|---|---|---|
+| Shape | `+` | `/` | `—` | `=` | hook | `‡` |
 
 ## Advanced settings
 
 | Setting | Default | What it does |
 |---|---|---|
-| Padding | 30 px | Space around the drawing, on all sides |
-| Line size | 20 px | Length of one full stroke, which sets the size of everything |
-| Line spacing | 10 px | Extra gap between two columns |
-| Maximum height | 400 px | How far down a column may reach before the text wraps into a new column |
-| Line color | black | Color of the strokes |
-| Background color | white | Background of the drawing, also used in downloads |
+| Padding | 30 px | Space around the drawing |
+| Line size | 20 px | Length of one stroke; sets the size of everything |
+| Line spacing | 10 px | Gap between columns (rectangle only) |
+| Maximum height | 400 px | How tall a column may get before wrapping (rectangle only) |
+| Shape | Rectangle | **Rectangle**: plain columns. **Compact** (experimental): packs the text as tightly as possible, with overlapping columns that never touch |
+| Guide shape | Circle | Compact only: aim for a round or a square result |
+| Extend free line ends | on | Compact only: lengthens strokes whose tips touch nothing (and either end of the N/S overlap marker), to fill empty space |
+| Show line guides | off | Compact only: shows where each column runs (preview only) |
+| Line / background color | black / white | Colors of the drawing |
 
 ## Project structure
 
 | File | Contents |
 |---|---|
-| `index.html` | The page layout, styling and settings panel |
-| `index.js` | Everything else, in sections: settings, letter shapes, spacing rules, layout and wrapping, drawing, rendering, zoom, and downloads |
+| `index.html` | Page layout and settings panel |
+| `index.css` | Styling (teal accent on top of Bootstrap) |
+| `index.js` | Everything else; the sections are listed at the top of the file |
 
-To change how a letter looks, edit the `LETTERS` table in `index.js`. For punctuation, edit the `PUNCTUATION` table.
+To change how a letter looks, edit the `LETTERS` table in `index.js`; for punctuation, the `PUNCTUATION` table.
 
 ## Known limitations
 
-- Digits and symbols without a defined shape (`0`–`9`, `-`, `:`, `;`, …) are drawn as a small dot.
-- A single word taller than the maximum height can't be wrapped, so it runs past the limit.
-- The stroke width is fixed at 5 px, so very small or very large line sizes can look too thick or too thin.
+- Digits and other symbols (`0`–`9`, `-`, `:`, …) are drawn as a small dot.
+- In the rectangle shape, a single word taller than the maximum height runs past it.
+- The stroke width is fixed at 5 px.
+- The compact shape is slower with long text (a few hundred milliseconds for about 600 characters).

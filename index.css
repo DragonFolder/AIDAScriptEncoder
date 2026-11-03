@@ -1,0 +1,54 @@
+/* Teal accent, used instead of Bootstrap's blue */
+:root {
+  --accent: #20c997;
+  --accent-hover: #3dd5a7;
+  --accent-active: #1aa179;
+  --accent-rgb: 32, 201, 151;
+}
+
+.btn-primary {
+  --bs-btn-color: #000;
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: #000;
+  --bs-btn-hover-bg: var(--accent-hover);
+  --bs-btn-hover-border-color: var(--accent-hover);
+  --bs-btn-active-color: #000;
+  --bs-btn-active-bg: var(--accent-active);
+  --bs-btn-active-border-color: var(--accent-active);
+  --bs-btn-focus-shadow-rgb: var(--accent-rgb);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: #000;
+  --bs-btn-hover-bg: var(--accent);
+  --bs-btn-hover-border-color: var(--accent);
+  --bs-btn-active-color: #000;
+  --bs-btn-active-bg: var(--accent-active);
+  --bs-btn-active-border-color: var(--accent-active);
+  --bs-btn-focus-shadow-rgb: var(--accent-rgb);
+}
+.form-control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 .25rem rgba(var(--accent-rgb), .25);
+}
+
+.app-container { max-width: 960px; }   /* the navbar's and the page's width */
+.app-navbar { border-bottom: 2px solid var(--accent); }
+.app-navbar .navbar-brand { color: var(--accent); letter-spacing: .02em; }
+summary { cursor: pointer; }
+summary:hover { color: var(--accent) !important; }
+
+#input { font-family: var(--bs-font-monospace); resize: vertical; }
+#preview { min-height: 160px; }
+#preview svg { display: block; }
+#zoomReset { min-width: 4rem; }   /* room for "400%" without the buttons shifting */
+
+/* Large screens: text and settings on the left, the preview on the right. The page gets wider to
+   fit both, and the preview stays in view while scrolling (a big drawing scrolls inside it). */
+@media (min-width: 1200px) {
+  .app-container { max-width: 1320px; }
+  .preview-card { position: sticky; top: 1rem; }
+  .preview-card .card-body { max-height: calc(100vh - 6rem); }
+}
