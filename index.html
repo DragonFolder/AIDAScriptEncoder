@@ -44,19 +44,19 @@
                 <div class="row g-3" data-pane="size">
                   <div class="col-6 col-md-3" data-setting>
                     <label for="setPadding" class="form-label small">Padding (px) <span class="tip" tabindex="0" role="button" aria-label="About Padding: Empty space around the drawing." data-tip="Empty space around the drawing.">?</span></label>
-                    <input id="setPadding" type="number" class="form-control form-control-sm" min="0" step="1" value="30">
+                    <input id="setPadding" type="number" class="form-control form-control-sm" min="0" max="500" step="1" value="30">
                   </div>
                   <div class="col-6 col-md-3" data-setting>
                     <label for="setLineSize" class="form-label small">Line size (px) <span class="tip" tabindex="0" role="button" aria-label="About Line size: Length of one stroke. Scales everything." data-tip="Length of one stroke. Scales everything.">?</span></label>
-                    <input id="setLineSize" type="number" class="form-control form-control-sm" min="1" step="1" value="20">
+                    <input id="setLineSize" type="number" class="form-control form-control-sm" min="1" max="200" step="1" value="20">
                   </div>
                   <div class="col-6 col-md-3" data-setting>
                     <label for="setLineSpacing" class="form-label small">Line spacing (px) <span class="tip" tabindex="0" role="button" aria-label="About Line spacing: Extra gap between columns." data-tip="Extra gap between columns.">?</span></label>
-                    <input id="setLineSpacing" type="number" class="form-control form-control-sm" min="0" step="1" value="10">
+                    <input id="setLineSpacing" type="number" class="form-control form-control-sm" min="0" max="500" step="1" value="10">
                   </div>
                   <div class="col-6 col-md-3" data-setting>
                     <label for="setMaxHeight" class="form-label small">Maximum height (px) <span class="tip" tabindex="0" role="button" aria-label="About Maximum height: How tall a column gets before wrapping." data-tip="How tall a column gets before wrapping.">?</span></label>
-                    <input id="setMaxHeight" type="number" class="form-control form-control-sm" min="1" step="10" value="400">
+                    <input id="setMaxHeight" type="number" class="form-control form-control-sm" min="1" max="10000" step="10" value="400">
                   </div>
                 </div>
 
@@ -156,7 +156,7 @@
                   </div>
                   <div class="col-6 col-md-3" data-setting>
                     <label for="setFrameWidth" class="form-label small">Frame thickness (px) <span class="tip" tabindex="0" role="button" aria-label="About Frame thickness: How thick the frame is." data-tip="How thick the frame is.">?</span></label>
-                    <input id="setFrameWidth" type="number" class="form-control form-control-sm" min="1" step="1" value="5">
+                    <input id="setFrameWidth" type="number" class="form-control form-control-sm" min="1" max="100" step="1" value="5">
                   </div>
                 </div>
 
@@ -197,6 +197,10 @@
               <div class="btn-group btn-group-sm" role="group" aria-label="Download">
                 <button id="dlSvg" type="button" class="btn btn-outline-primary">Download SVG</button>
                 <button id="dlPng" type="button" class="btn btn-primary">Download PNG</button>
+              </div>
+              <div class="btn-group btn-group-sm" role="group" aria-label="Copy and share">
+                <button id="copyImage" type="button" class="btn btn-outline-primary" title="Copy the PNG, to paste anywhere">Copy image</button>
+                <button id="copyLink" type="button" class="btn btn-outline-primary" title="Copy a link to this drawing">🔗 Copy link</button>
               </div>
             </div>
           </div>

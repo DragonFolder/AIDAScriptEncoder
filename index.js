@@ -12,7 +12,8 @@
 //   6. Drawing         – turning shapes into SVG lines
 //   7. Render          – runs on every keystroke
 //      Zoom            – preview zoom buttons
-//   8. Downloads       – SVG and PNG buttons
+//   8. Downloads       – SVG and PNG buttons, Copy image
+//   9. Sharing         – Copy link, and the settings kept between visits
 // (sections 2 to 5 are in layout.js)
 // =============================================================================
 
@@ -28,8 +29,9 @@ const byId = id => document.getElementById(id);
 // An empty or invalid number keeps the last valid value.
 function readSettings(){
   const number = (id, min, current) => {
-    const n = parseFloat(byId(id).value);
-    return Number.isFinite(n) && n >= min ? n : current;
+    const input = byId(id), n = parseFloat(input.value);
+    const max = input.max === '' ? Infinity : +input.max;   // (the most index.html allows)
+    return Number.isFinite(n) && n >= min ? Math.min(n, max) : current;
   };
 
   const padding = number('setPadding', 0, CONFIG.padding.top);
@@ -589,6 +591,7 @@ function showBusy(busy){
   preview.classList.toggle('busy', busy);
   byId('dlSvg').disabled = busy;
   byId('dlPng').disabled = busy;
+  byId('copyImage').disabled = busy;
   byId('layoutNext').disabled = busy || byId('layoutNext').disabled;
 }
 
@@ -644,6 +647,7 @@ function render(){
 
   applyZoom();   // the new drawing keeps the current zoom
   lastRenderTime = performance.now() - started;
+  afterRender();
 }
 
 // Columns from left to right, each wrapped at the maximum height. Returns the image size.
@@ -693,6 +697,10 @@ function drawLineGuide(chars, positions, x, y){
 // Returns the image size.
 function renderCompact(textLines){
   const layouts = layoutCache.layouts;   // (ready: see layoutsReady)
+  if (linkLayoutWanted !== null) {   // (a shared link: the layout it was made with)
+    layoutChoice = linkLayoutWanted;
+    linkLayoutWanted = null;
+  }
   if (randomLayoutWanted) {   // ("Surprise me": any of the layouts found, not just the best)
     layoutChoice = Math.floor(Math.random() * layouts.length);
     randomLayoutWanted = false;
@@ -966,22 +974,47 @@ function crc32(data){
 byId('dlSvg').onclick = () =>
   download(new Blob([svgString()], { type: 'image/svg+xml' }), 'image.svg');
 
-byId('dlPng').onclick = () => {
+// The drawing as a PNG, twice its real size, with its text inside (see pngWithText)
+function pngBlob(){
   const scale = 2;
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = svg.width.baseVal.value * scale;
-    c.height = svg.height.baseVal.value * scale;
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0, c.width, c.height);
-    c.toBlob(async b => download(drawingText() ? await pngWithText(b, drawingText()) : b, 'image.png'), 'image/png');
-  };
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString());
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = svg.width.baseVal.value * scale;
+      c.height = svg.height.baseVal.value * scale;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(async b => b ? resolve(drawingText() ? await pngWithText(b, drawingText()) : b) : reject(), 'image/png');
+    };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString());
+  });
+}
+byId('dlPng').onclick = async () => download(await pngBlob(), 'image.png');
+
+// A button's label for a moment (to say how something went), then back
+function flash(button, text){
+  clearTimeout(button.flashTimer);
+  button.dataset.label ??= button.textContent;
+  button.textContent = text;
+  button.flashTimer = setTimeout(() => { button.textContent = button.dataset.label; }, 1600);
+}
+
+// "Copy image": the PNG on the clipboard, to paste anywhere (hidden where the browser can't do that).
+// (The clipboard is handed a promise of the image, so the copy still counts as part of the click.)
+byId('copyImage').hidden = !(window.ClipboardItem && navigator.clipboard?.write);
+byId('copyImage').onclick = async () => {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob() })]);
+    flash(byId('copyImage'), 'Copied!');
+  } catch {
+    flash(byId('copyImage'), "Couldn't copy");
+  }
 };
 
 input.addEventListener('input', () => {
   randomLayoutWanted = false;   // (a surprise is for the text it was asked for)
+  linkLayoutWanted = null;      // (and so is a shared link's layout)
   scheduleRender();
 });
 
@@ -989,4 +1022,116 @@ const settings = byId('settings');
 settings.addEventListener('input', scheduleRender);
 settings.addEventListener('reset', () => setTimeout(render));   // wait until the form has put the defaults back
 
+
+// =============================================================================
+// 9. Sharing and remembering
+// =============================================================================
+
+// A drawing as a short piece of text: the text, every setting that isn't at its default (by name:
+// the setting's id without "set", e.g. guideShape), and which layout is shown (counting from 1,
+// only when it isn't the first). It's put after the # of a link ("Copy link"), which browsers
+// never send to the server; the settings alone are also kept in this browser between visits.
+// Whatever is read back is checked first: only known settings, and only sensible values.
+
+const SETTING_INPUTS = [...document.querySelectorAll('#settings [id^="set"]')];
+const settingName = input => input.id[3].toLowerCase() + input.id.slice(4);
+// (a list's default is the option marked selected in index.html, or else its first)
+const defaultOption = select => [...select.options].find(option => option.defaultSelected) ?? select.options[0];
+const isDefault = input => input.type == 'checkbox' ? input.checked == input.defaultChecked
+                         : input.tagName == 'SELECT' ? input.value == defaultOption(input)?.value
+                         : input.value == input.defaultValue;
+
+// The settings that aren't at their defaults, as { name: value } (colors without their #)
+function changedSettings(){
+  const changed = {};
+  for (const input of SETTING_INPUTS) {
+    if (isDefault(input)) continue;
+    changed[settingName(input)] = input.type == 'checkbox' ? (input.checked ? '1' : '0')
+                                : input.type == 'color' ? input.value.slice(1) : input.value;
+  }
+  return changed;
+}
+
+// Put settings ({ name: value }, from a link or from this browser) into the settings panel,
+// leaving out anything unknown or not sensible
+function applySettings(values){
+  for (const input of SETTING_INPUTS) {
+    const value = values[settingName(input)];
+    if (typeof value != 'string') continue;
+    if (input.type == 'checkbox') {
+      if (value == '1' || value == '0') input.checked = value == '1';
+    } else if (input.type == 'color') {
+      if (/^[0-9a-fA-F]{6}$/.test(value)) input.value = '#' + value.toLowerCase();
+    } else if (input.tagName == 'SELECT') {
+      if ([...input.options].some(option => option.value == value)) input.value = value;
+    } else {   // a number, or a slider: within its limits
+      const n = parseFloat(value);
+      const low = input.min === '' ? -Infinity : +input.min, high = input.max === '' ? Infinity : +input.max;
+      if (Number.isFinite(n)) input.value = Math.min(Math.max(n, low), high);
+    }
+  }
+}
+
+// The current drawing, as a link's part after the #
+function shareText(){
+  const parts = new URLSearchParams();
+  if (input.value.trim()) parts.set('text', input.value);
+  for (const [name, value] of Object.entries(changedSettings())) parts.set(name, value);
+  if (byId('setShape').value == 'compact' && layoutChoice > 0) parts.set('layout', layoutChoice + 1);
+  return parts.toString();
+}
+
+// "Copy link": a link to this drawing, on the clipboard (and in the address bar, to copy from there
+// if the clipboard isn't allowed)
+let linkShown = null;   // the link part now in the address bar (dropped once the drawing changes)
+byId('copyLink').onclick = async () => {
+  linkShown = shareText();
+  history.replaceState(null, '', location.pathname + location.search + '#' + linkShown);
+  try {
+    await navigator.clipboard.writeText(location.href);
+    flash(byId('copyLink'), 'Link copied!');
+  } catch {
+    flash(byId('copyLink'), 'Copy it from the address bar');
+  }
+};
+
+// After every render: remember the settings, and take the link out of the address bar once the
+// drawing no longer matches it (so a reload doesn't undo what was changed since)
+const SETTINGS_KEY = 'aidascript.settings';
+function afterRender(){
+  try {
+    const changed = changedSettings();
+    if (Object.keys(changed).length) localStorage.setItem(SETTINGS_KEY, JSON.stringify(changed));
+    else localStorage.removeItem(SETTINGS_KEY);
+  } catch {}   // (not allowed to remember: it just won't)
+  if (location.hash && linkShown !== null && linkLayoutWanted === null && shareText() != linkShown) {
+    history.replaceState(null, '', location.pathname + location.search);
+    linkShown = null;
+  }
+}
+
+// On opening the page: the remembered settings, then a link's drawing (which wins)
+let linkLayoutWanted = null;   // (a link's layout, picked once the layouts are ready: see renderCompact)
+function restore(){
+  try { applySettings(JSON.parse(localStorage.getItem(SETTINGS_KEY)) ?? {}); } catch {}
+  if (location.hash.length > 1) {
+    const parts = new URLSearchParams(location.hash.slice(1));
+    const values = Object.fromEntries(parts);
+    if (parts.has('text') || Object.keys(values).length) {
+      // a link describes the whole drawing: anything it leaves out is at its default
+      for (const input of SETTING_INPUTS) {
+        if (input.type == 'checkbox') input.checked = input.defaultChecked;
+        else if (input.tagName == 'SELECT') input.value = defaultOption(input)?.value ?? input.value;
+        else input.value = input.defaultValue;
+      }
+      applySettings(values);
+      input.value = (values.text ?? '').slice(0, 5000);   // (a sensible limit for a link)
+      const layout = parseInt(values.layout);
+      if (layout > 1) linkLayoutWanted = Math.min(layout - 1, 50);
+      linkShown = location.hash.slice(1);
+    }
+  }
+}
+
+restore();
 render();

@@ -52,14 +52,15 @@
     }
 
     // Load the page fresh, and collect any errors it raises
-    async function loadApp(){
-      const errors = [];
-      frame.src = '../index.html?test=' + Date.now();
+    // Load the page fresh (with a link's part after the #, if given), and collect any errors it
+    // raises into `errors`
+    async function loadApp(errors, hash = ''){
+      frame.src = '../index.html?test=' + Date.now() + hash;
       await new Promise(resolve => frame.onload = resolve);
       const app = frame.contentWindow;
       app.addEventListener('error', e => errors.push(e.message));
       app.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
-      return { app, errors };
+      return app;
     }
 
     // Wait until the page shows a finished drawing of the current text: nothing still being laid
@@ -103,20 +104,36 @@
       results.replaceChildren();
       document.getElementById('summary').textContent = 'Running…';
 
-      let app, errors;
+      // The page remembers settings in this browser: put this site's saved ones aside while testing
+      // (so the tests start from the defaults), and back afterwards
+      const KEYS = ['aidascript.settings', 'aidascript.compactHintDone'];
+      const saved = Object.fromEntries(KEYS.map(key => [key, localStorage.getItem(key)]));
+      localStorage.removeItem('aidascript.settings');
+      localStorage.setItem('aidascript.compactHintDone', '1');   // (keep the hint out of the way)
+      const restoreSaved = () => KEYS.forEach(key => saved[key] === null ? localStorage.removeItem(key) : localStorage.setItem(key, saved[key]));
+
+      const errors = [];
+      let app;
       try {
-        ({ app, errors } = await loadApp());
+        app = await loadApp(errors);
         app.document;   // (throws when opened from a file: the page can't be looked inside)
       } catch {
+        restoreSaved();
         report(false, 'the page can be tested', 'open this through a local server, not straight from a file');
         document.getElementById('run').disabled = false;
         document.getElementById('summary').textContent = '';
         return;
       }
-      const doc = app.document, byId = id => doc.getElementById(id);
+      let doc = app.document, byId = id => doc.getElementById(id);
       const setText = text => { const input = byId('input'); input.value = text; input.dispatchEvent(new app.Event('input')); };
       const lines = () => app.eval('svg').querySelectorAll('line:not(.guide)').length;
-      app.localStorage.setItem('aidascript.compactHintDone', '1');   // (keep the hint out of the way)
+      // (load the page again, e.g. as a link or a next visit, and wait for its drawing)
+      const reload = async (hash = '') => {
+        app = await loadApp(errors, hash);
+        doc = app.document;
+        await settled(app);
+        for (let i = 0; i < 200 && app.eval('linkLayoutWanted') !== null; i++) await sleep(20);
+      };
 
       await step('the page loads', () => [!!byId('preview').querySelector('svg'), '']);
 
@@ -281,9 +298,49 @@
         return byId('setShape').value == 'rectangle' && byId('quickRectangle').checked;
       });
 
+      await step('a copied link opens exactly the same drawing (layout too)', async () => {
+        setText('the quick brown fox jumps over the lazy dog.\nhello world?');
+        byId('quickCompact').click();
+        await settled(app);
+        for (let i = 0; i < 30 && app.eval('layoutChoice') == 0; i++) {   // (a surprise on a layout other than the first)
+          byId('surpriseMe').click();
+          await settled(app);
+        }
+        const before = app.eval('svgString()'), label = byId('layoutLabel').textContent;
+        const link = app.eval('shareText()');
+        app.localStorage.setItem('aidascript.settings', JSON.stringify({ padding: '80', lineColor: 'ff0000' }));   // (the link must win)
+        await reload('#' + link);
+        return [app.eval('svgString()') == before && byId('layoutLabel').textContent == label, label];
+      });
+
+      await step('settings are remembered for the next visit; Reset forgets them', async () => {
+        await reload();
+        byId('setGuideShape').value = 'hexagon';
+        byId('setLineColor').value = '#123456';
+        byId('setFrame').value = 'blob';
+        app.eval('render()');
+        await reload();
+        const kept = byId('setGuideShape').value == 'hexagon' && byId('setLineColor').value == '#123456' &&
+                     byId('setFrame').value == 'blob' && byId('input').value == '';   // (the text isn't kept)
+        byId('settings').reset();
+        await sleep(100);
+        const forgotten = app.localStorage.getItem('aidascript.settings') === null;
+        return [kept && forgotten, `kept: ${kept}, forgotten after Reset: ${forgotten}`];
+      });
+
+      await step('a link can only set sensible values', async () => {
+        await reload('#text=' + encodeURIComponent('<b>hi</b>') + '&shape=compact&guideShape=star&lineColor=zzzzzz' +
+                     '&padding=99999&frameWidth=-5&transparent=yes&evil=1&layout=9999');
+        const ok = byId('input').value == '<b>hi</b>' && !byId('preview').querySelector('b') &&
+                   byId('setShape').value == 'compact' && byId('setGuideShape').value == 'circle' &&
+                   byId('setLineColor').value == '#000000' && byId('setPadding').value == '500' &&
+                   byId('setFrameWidth').value == '1' && !byId('setTransparent').checked;
+        return [ok, `padding ${byId('setPadding').value}, frame ${byId('setFrameWidth').value}, ${byId('layoutLabel').textContent}`];
+      });
+
       await step('no errors on the page', () => [errors.length == 0, errors.slice(0, 2).join('; ')]);
 
-      app.localStorage.removeItem('aidascript.compactHintDone');
+      restoreSaved();
       const failed = results.querySelectorAll('li.fail').length, total = results.children.length;
       document.getElementById('summary').textContent = failed ? `${failed} of ${total} FAILED` : `All ${total} passed`;
       document.getElementById('summary').style.color = failed ? 'var(--fail)' : 'var(--ok)';

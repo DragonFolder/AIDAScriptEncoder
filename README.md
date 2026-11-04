@@ -10,7 +10,9 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 
 - Live preview, with zoom (25%–400%): point at a letter (or tap it) to see what it says
 - The text is kept inside the downloads: as the SVG's title, and as the PNG's description
-- Download as SVG or PNG
+- Download as SVG or PNG, or copy the image to paste it anywhere
+- **Copy link**: a link that opens exactly this drawing (text, settings and layout)
+- Your settings are remembered in your browser for next time (**Reset to defaults** clears them)
 - Long lines wrap into new columns, keeping words whole
 - Settings for size, spacing, colors and layout
 - An experimental **compact** layout that packs the text into a tight blob, guided by a shape of your choice
