@@ -72,7 +72,7 @@ Digits stand apart from letters and punctuation. Within a number, each digit goe
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | ![1](images/digits/1.svg) | ![2](images/digits/2.svg) | ![3](images/digits/3.svg) | ![4](images/digits/4.svg) | ![5](images/digits/5.svg) | ![6](images/digits/6.svg) | ![7](images/digits/7.svg) | ![8](images/digits/8.svg) | ![9](images/digits/9.svg) | ![0](images/digits/0.svg) |
 
-Punctuation marks are small shapes that stand apart and never touch anything. Quote marks open with **Λ** and close with **V**, and `"` is two of them, one above the other. An apostrophe inside a word (don't) is always Λ, as is a `'` that's never closed (the dogs'). Curly quotes (‘ ’ “ ”) work too. Parentheses open with a cap (⊓) and close with a cup (⊔). Two quote marks in a row get an extra half line size between them, so '' doesn't read as ". The colon's two dots sit side by side, so it never looks like periods in a row.
+Punctuation marks are small shapes that stand apart and never touch anything. Quote marks open with **Λ** and close with **V**, and `"` is two of them, one above the other. An apostrophe inside a word (don't) is always Λ, as is a `'` that's never closed (the dogs'). Curly quotes (‘ ’ “ ”) work too. Parentheses open with a cap (⊓) and close with a cup (⊔); brackets `[ ]` and braces `{ }` draw the same way, and guillemets `« »` `‹ ›` draw as quote marks. Dashes (– —) draw as `-`, and `…` as `...`. Two quote marks in a row get an extra half line size between them, so '' doesn't read as ". The colon's two dots sit side by side, so it never looks like periods in a row.
 
 | `.` | `,` | `'` (apostrophe, opening) | `'` (closing) | `"` (opening) | `"` (closing) | `?` | `!` |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -136,6 +136,7 @@ Two sets of checks, worth running before merging into `main`:
 ## Known limitations
 
 - Symbols other than the punctuation above (`#`, `%`, `&`, emoji, …) have no shape yet, and are drawn as a space, so `50%` doesn't run into the next word. Accented letters are drawn without their accents (é as e).
+- A word whose picture is the same when flipped left to right looks exactly like its mirror word, unless something else in the column shows where the middle is: `ho` and `zw` (also `hio` and `zxw`). These are the only ones among all letter combinations up to four letters, and only "ho" is a word. The letters follow flag semaphore, so they're kept as they are.
 - In the rectangle shape, a single word taller than the maximum height runs past it.
 - The stroke width is fixed at 5 px.
 - The compact shape takes a moment with long text (about a second for 600 characters). The page stays usable meanwhile, showing "Arranging…". Opened straight from a file, some browsers don't allow the background worker, and the page then pauses instead.

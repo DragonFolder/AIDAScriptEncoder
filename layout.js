@@ -162,13 +162,17 @@ function markOneSidedNumbers(text){
 
 // The text as it's drawn:
 // - accents taken off letters (é becomes e);
-// - other ways of typing a mark made into the one we draw (see SAME_MARK: – is -, … is ...);
+// - other ways of typing a mark made into the one we draw (see SAME_MARK: – is -, … is ..., [ is ();
 // - every quote mark made into an apostrophe, an opening or a closing one (see quoteMarks);
 // - every other character with no shape (symbols, tabs, emoji, ...) drawn as a space, so what it
 //   separated stays apart (50% is 50 and a space, not 50 run into the next word);
 // - the digits of a number on one side of the middle line swapped for their stand-ins (see TICKED).
 // Spaces and line breaks stay.
-const SAME_MARK = { '–': '-', '—': '-', '‐': '-', '‑': '-', '−': '-', '…': '...' };
+const SAME_MARK = {
+  '–': '-', '—': '-', '‐': '-', '‑': '-', '−': '-', '…': '...',
+  '[': '(', '{': '(', ']': ')', '}': ')',               // (brackets and braces draw like parentheses)
+  '«': '“', '»': '”', '‹': '‘', '›': '’',               // (guillemets draw like quote marks)
+};
 function drawableText(text){
   // (every digit and quote mark is in PUNCTUATION; the stand-ins are never taken as typed)
   const drawn = ch => ch == ' ' || ch == '\n' || Object.hasOwn(LETTERS, ch.toLowerCase()) ||

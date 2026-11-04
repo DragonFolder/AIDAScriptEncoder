@@ -255,6 +255,8 @@ test('characters with no shape are drawn as spaces, accents are taken off', () =
     ['12:30 (2026-11-04)', '12:30 (2026-11-04)'],
     ['a–b—c', 'a-b-c'],                          // (dashes are all the hyphen)
     ['wait…', 'wait...'],
+    ['[a] {b}', '(a) (b)'],                      // (brackets and braces draw like parentheses)
+    ['«oui» ‹non›', '“oui” ‘non’'],              // (guillemets draw like quote marks)
     ['Café crème', 'Cafe creme'],
     ['line 2\n8\tthree', 'line 2\n8 three'],
   ];
