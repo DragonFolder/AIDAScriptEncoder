@@ -28,15 +28,23 @@ W — · — E
 SW  S  SE
 ```
 
-| Letter | Strokes | Letter | Strokes | Letter | Strokes | Letter | Strokes |
-|---|---|---|---|---|---|---|---|
-| a | SW, S | h | W, SW | o | NW, W | t | N, NW |
-| b | W, S | i | NW, SW | p | N, W | u | NW, NE |
-| c | NW, S | j | N, E | q | NE, W | v | N, SE |
-| d | N, S | k | N, SW | r | E, W | w | E, NE |
-| e | NE, S | l | NE, SW | s | SE, W | x | NE, SE |
-| f | E, S | m | E, SW | | | y | NW, E |
-| g | SE, S | n | SE, SW | | | z | SE, E |
+| **a** | **b** | **c** | **d** | **e** | **f** | **g** |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![a](images/letters/a.svg) | ![b](images/letters/b.svg) | ![c](images/letters/c.svg) | ![d](images/letters/d.svg) | ![e](images/letters/e.svg) | ![f](images/letters/f.svg) | ![g](images/letters/g.svg) |
+
+| **h** | **i** | **j** | **k** | **l** | **m** | **n** |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![h](images/letters/h.svg) | ![i](images/letters/i.svg) | ![j](images/letters/j.svg) | ![k](images/letters/k.svg) | ![l](images/letters/l.svg) | ![m](images/letters/m.svg) | ![n](images/letters/n.svg) |
+
+| **o** | **p** | **q** | **r** | **s** | **t** | **u** |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![o](images/letters/o.svg) | ![p](images/letters/p.svg) | ![q](images/letters/q.svg) | ![r](images/letters/r.svg) | ![s](images/letters/s.svg) | ![t](images/letters/t.svg) | ![u](images/letters/u.svg) |
+
+| **v** | **w** | **x** | **y** | **z** |
+|:---:|:---:|:---:|:---:|:---:|
+| ![v](images/letters/v.svg) | ![w](images/letters/w.svg) | ![x](images/letters/x.svg) | ![y](images/letters/y.svg) | ![z](images/letters/z.svg) |
+
+*(Drawn from the `LETTERS` table by `tools/make-letter-images.js`.)*
 
 Letters are stacked so their strokes connect without crossing in the wrong places. Words are separated by a gap.
 
@@ -81,8 +89,10 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 | `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
 | `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
 | `index.js` | The page: settings, drawing, preview, downloads |
+| `images/letters/` | The letter pictures in this README |
+| `tools/make-letter-images.js` | Redraws those pictures (`node tools/make-letter-images.js`) |
 
-To change how a letter looks, edit the `LETTERS` table in `layout.js`; for punctuation, the `PUNCTUATION` table.
+To change how a letter looks, edit the `LETTERS` table in `layout.js` (then run `node tools/make-letter-images.js` to redraw the pictures above); for punctuation, the `PUNCTUATION` table.
 
 ## Known limitations
 
