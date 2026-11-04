@@ -88,11 +88,22 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 | `index.css` | Styling (teal accent on top of Bootstrap) |
 | `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
 | `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
+| `colors.js` | The Random colors generator |
 | `index.js` | The page: settings, drawing, preview, downloads |
+| `tests/` | The tests (see [Testing](#testing)) |
 | `images/` | The letter and punctuation pictures in this README |
 | `tools/make-letter-images.js` | Redraws those pictures (`node tools/make-letter-images.js`) |
 
 To change how a letter looks, edit the `LETTERS` table in `layout.js`; for punctuation, the `PUNCTUATION` table. Then run `node tools/make-letter-images.js` to redraw the pictures above.
+
+## Testing
+
+Two sets of checks, worth running before merging into `main`:
+
+- **`node tests/run-tests.js`** (about 5 seconds, needs [Node.js](https://nodejs.org/), nothing else): the layouts are the same as before (`tests/snapshots.json`), lines of different columns never touch, no guide shape makes the layout freeze, the guide shapes' sums agree, and random colors stay readable.
+  - `--full` also tries every Surprise me combination (a few minutes).
+  - `--update` saves the current layouts as the expected ones. Use it after changing the layout on purpose, once you've checked the result in the page.
+- **`tests/browser.html`**: open it through a local server (for example `python -m http.server` in the project folder, then `http://localhost:8000/tests/browser.html`) and press **Run the tests**. It clicks through the real page: drawing, the background worker, the frames, Random colors, Surprise me and Reset. Nothing is downloaded.
 
 ## Known limitations
 

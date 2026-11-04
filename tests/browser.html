@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIDAScript page tests</title>
+  <style>
+    :root { --ok: #1a7f37; --fail: #cf222e; --muted: #59636e; }
+    body { margin: 0; padding: 16px; font: 14px/1.45 system-ui, sans-serif; background: #ffffff; color: #1f2328; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    p { margin: 0 0 12px; color: var(--muted); }
+    button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #1a7f37; background: #1a7f37; color: #fff; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    ol { padding-left: 20px; }
+    li { margin: 4px 0; }
+    li.ok::marker { color: var(--ok); }
+    li.fail { color: var(--fail); }
+    .note { color: var(--muted); }
+    #summary { font-weight: 600; margin: 12px 0; }
+    iframe { width: 100%; max-width: 1280px; height: 520px; border: 1px solid #d0d7de; border-radius: 6px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <!-- Checks the page itself in a real browser: drawing, the background worker, the buttons.
+       (The layout and color code are checked by tests/run-tests.js.)
+       Open it through a local server, e.g. `python -m http.server` in the project folder, then
+       http://localhost:8000/tests/browser.html. Opened straight from a file it can't look inside
+       the page, and the background worker isn't allowed either. -->
+  <h1>AIDAScript page tests</h1>
+  <p>Loads the page below and clicks through it. Nothing is downloaded. Takes about half a minute.</p>
+  <button id="run" type="button">Run the tests</button>
+  <div id="summary"></div>
+  <ol id="results"></ol>
+  <iframe id="app" title="The page being tested"></iframe>
+
+  <script>
+    const results = document.getElementById('results');
+    const frame = document.getElementById('app');
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    function report(ok, name, note){
+      const li = document.createElement('li');
+      li.className = ok ? 'ok' : 'fail';
+      li.textContent = (ok ? '✓ ' : '✗ ') + name;
+      if (note) {
+        const span = document.createElement('span');
+        span.className = 'note';
+        span.textContent = ' (' + note + ')';
+        li.append(span);
+      }
+      results.append(li);
+    }
+
+    // Load the page fresh, and collect any errors it raises
+    async function loadApp(){
+      const errors = [];
+      frame.src = '../index.html?test=' + Date.now();
+      await new Promise(resolve => frame.onload = resolve);
+      const app = frame.contentWindow;
+      app.addEventListener('error', e => errors.push(e.message));
+      app.addEventListener('unhandledrejection', e => errors.push(String(e.reason)));
+      return { app, errors };
+    }
+
+    // Wait until the page shows a finished drawing of the current text: nothing still being laid
+    // out in the background (see "pending" in index.js) and, for the compact shape, the layouts
+    // in hand are for the text now in the box (after typing, the page waits a moment before
+    // starting, see scheduleRender)
+    async function settled(app, limit = 15000){
+      const ready = () => {
+        if (app.eval('pending')) return false;
+        if (app.document.getElementById('setShape').value != 'compact') return true;
+        const key = app.eval('layoutCache.key');
+        return !!key && JSON.parse(key)[0].join('\n') == app.document.getElementById('input').value;
+      };
+      await sleep(200);
+      const started = Date.now();
+      while (!ready() && Date.now() - started < limit) await sleep(20);
+      return ready();
+    }
+
+    // How long the page stops responding while `work` runs: the longest gap between ticks of a 10 ms timer
+    async function longestFreeze(app, work){
+      let worst = 0, last = performance.now(), ticking = true;
+      (function tick(){ const now = performance.now(); worst = Math.max(worst, now - last); last = now; if (ticking) setTimeout(tick, 10); })();
+      await work();
+      ticking = false;
+      return Math.round(worst);
+    }
+
+    async function step(name, fn){
+      try {
+        const result = await fn();
+        const [ok, note] = Array.isArray(result) ? result : [result !== false, typeof result == 'string' ? result : ''];
+        report(ok, name, note);
+      } catch (error) {
+        report(false, name, error.message);
+      }
+    }
+
+    async function run(){
+      document.getElementById('run').disabled = true;
+      results.replaceChildren();
+      document.getElementById('summary').textContent = 'Running…';
+
+      let app, errors;
+      try {
+        ({ app, errors } = await loadApp());
+        app.document;   // (throws when opened from a file: the page can't be looked inside)
+      } catch {
+        report(false, 'the page can be tested', 'open this through a local server, not straight from a file');
+        document.getElementById('run').disabled = false;
+        document.getElementById('summary').textContent = '';
+        return;
+      }
+      const doc = app.document, byId = id => doc.getElementById(id);
+      const setText = text => { const input = byId('input'); input.value = text; input.dispatchEvent(new app.Event('input')); };
+      const lines = () => app.eval('svg').querySelectorAll('line:not(.guide)').length;
+      app.localStorage.setItem('aidascript.compactHintDone', '1');   // (keep the hint out of the way)
+
+      await step('the page loads', () => [!!byId('preview').querySelector('svg'), '']);
+
+      await step('rectangle: typing draws the text', async () => {
+        setText('hello world');
+        await sleep(100);
+        return [lines() > 0, lines() + ' lines'];
+      });
+
+      await step('the Rectangle | Compact switch matches Settings → Shape', async () => {
+        byId('quickCompact').click();
+        const ok = byId('setShape').value == 'compact';
+        byId('quickRectangle').click();
+        return ok && byId('setShape').value == 'rectangle';
+      });
+
+      await step('compact: laid out in the background worker', async () => {
+        byId('quickCompact').click();
+        setText('the quick brown fox jumps over the lazy dog. hello world?');
+        const done = await settled(app);
+        return [done && lines() > 0 && !app.eval('workerFailed'), done ? lines() + ' lines' : 'never finished'];
+      });
+
+      await step('compact: the page keeps responding while a long text is laid out', async () => {
+        const freeze = await longestFreeze(app, async () => {
+          setText('lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua '.repeat(5));
+          await settled(app);
+        });
+        return [freeze < 300 && lines() > 0, 'longest pause ' + freeze + ' ms'];
+      });
+
+      await step('‹ Layout › steps through the layouts', async () => {
+        setText('the quick brown fox jumps over the lazy dog. hello world?');
+        await settled(app);
+        const before = byId('layoutLabel').textContent;
+        byId('layoutNext').click();
+        await settled(app);
+        const after = byId('layoutLabel').textContent;
+        byId('layoutPrev').click();
+        return [after != before && byId('layoutLabel').textContent == before, before + ' → ' + after + ' → back'];
+      });
+
+      await step('every frame is drawn', async () => {
+        const drawn = [];
+        for (const frameType of ['guide', 'rectangle', 'blob']) {
+          byId('setFrame').value = frameType;
+          app.eval('render()');
+          await settled(app);
+          if (app.eval('svg').querySelector('circle, ellipse, polygon, path, rect + rect, line ~ rect')) drawn.push(frameType);
+        }
+        byId('setFrame').value = 'none';
+        app.eval('render()');
+        return [drawn.length == 3, drawn.join(', ')];
+      });
+
+      await step('Random colors changes the colors, and they stay readable', async () => {
+        const before = byId('setLineColor').value;
+        byId('randomColors').click();
+        await settled(app);
+        const line = byId('setLineColor').value, background = byId('setBgColor').value;
+        const ratio = app.eval('contrast')(line, background);
+        return [line != before && ratio >= 4.5, byId('randomColorsName').textContent + ', contrast ' + ratio.toFixed(1)];
+      });
+
+      await step('transparent background: none in the image', async () => {
+        byId('setTransparent').checked = true;
+        app.eval('render()');
+        await settled(app);
+        const svgText = app.eval('svgString()');
+        const ok = !/<rect[^>]*fill="#/.test(svgText.split('<line')[0]) && !svgText.includes('class="transparent"');
+        byId('setTransparent').checked = false;
+        app.eval('render()');
+        return ok;
+      });
+
+      await step('the downloaded image is complete (and has no line guides)', async () => {
+        byId('setShowGuide').checked = true;
+        app.eval('render()');
+        await settled(app);
+        const svgText = app.eval('svgString()');
+        byId('setShowGuide').checked = false;
+        app.eval('render()');
+        // The PNG is made from this same SVG: check it turns into a picture
+        const img = new Image();
+        const loaded = await new Promise(resolve => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+        });
+        return [svgText.includes('xmlns') && !svgText.includes('class="guide"') && loaded && img.width > 0, img.width + '×' + img.height];
+      });
+
+      await step('Surprise me, clicked quickly 60 times: no freeze, still in the background', async () => {
+        setText('the quick brown fox jumps over the lazy dog. hello world?');
+        await settled(app);
+        const freeze = await longestFreeze(app, async () => {
+          for (let i = 0; i < 60; i++) { byId('surpriseMe').click(); await sleep(25); }
+          await settled(app);
+        });
+        const ok = freeze < 500 && lines() > 0 && !app.eval('workerFailed') && !app.eval('pending');
+        return [ok, 'longest pause ' + freeze + ' ms'];
+      });
+
+      await step('Reset to defaults', async () => {
+        byId('settings').reset();
+        await sleep(100);
+        await settled(app);
+        return byId('setShape').value == 'rectangle' && byId('quickRectangle').checked;
+      });
+
+      await step('no errors on the page', () => [errors.length == 0, errors.slice(0, 2).join('; ')]);
+
+      app.localStorage.removeItem('aidascript.compactHintDone');
+      const failed = results.querySelectorAll('li.fail').length, total = results.children.length;
+      document.getElementById('summary').textContent = failed ? `${failed} of ${total} FAILED` : `All ${total} passed`;
+      document.getElementById('summary').style.color = failed ? 'var(--fail)' : 'var(--ok)';
+      document.getElementById('run').disabled = false;
+    }
+
+    document.getElementById('run').onclick = run;
+  </script>
+</body>
+</html>
