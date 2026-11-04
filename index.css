@@ -46,6 +46,18 @@ summary:hover { color: var(--accent) !important; }
 .settings-tabs .nav-link:hover { color: var(--accent); }
 .settings-tabs .nav-link.active { color: #000; background-color: var(--accent); }
 
+/* Sliders in the accent colour, with the words for their two ends underneath */
+.form-range::-webkit-slider-thumb { background-color: var(--accent); }
+.form-range::-webkit-slider-thumb:active { background-color: var(--accent-active); }
+.form-range::-moz-range-thumb { background-color: var(--accent); }
+.form-range::-moz-range-thumb:active { background-color: var(--accent-active); }
+.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 1px var(--bs-body-bg), 0 0 0 .25rem rgba(var(--accent-rgb), .25); }
+.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 1px var(--bs-body-bg), 0 0 0 .25rem rgba(var(--accent-rgb), .25); }
+.range-ends { font-size: .75rem; margin-top: -.25rem; }
+/* Ticked checkboxes in the accent colour too */
+.form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
+.form-check-input:focus { border-color: var(--accent); box-shadow: 0 0 0 .25rem rgba(var(--accent-rgb), .25); }
+
 /* A setting's "?" and the explanation it shows (see showTip in index.js) */
 .tip {
   display: inline-flex; align-items: center; justify-content: center;
@@ -63,6 +75,10 @@ summary:hover { color: var(--accent) !important; }
 #input { font-family: var(--bs-font-monospace); resize: vertical; }
 #preview { min-height: 160px; }
 #preview svg { display: block; }
+/* A transparent background shows as a checkerboard (preview only: not part of the image) */
+#preview svg.transparent { background: repeating-conic-gradient(#d0d0d0 0 25%, #ffffff 0 50%) 0 0 / 16px 16px; }
+/* While a new compact layout is being worked out, the old drawing fades */
+#preview.busy svg { opacity: .45; transition: opacity .15s; }
 #zoomReset { min-width: 4rem; }   /* room for "400%" without the buttons shifting */
 .layout-label { min-width: 6.5rem; opacity: 1 !important; }   /* room for "Layout 8 / 8"; a label, so not greyed out */
 
