@@ -107,3 +107,17 @@ summary:hover { color: var(--accent) !important; }
   .preview-card { position: sticky; top: 1rem; }
   .preview-card .card-body { max-height: calc(100vh - 6rem); }
 }
+
+/* "How to read AIDAScript": a tile per letter, drawn in the accent colour */
+.alphabet > summary { list-style-position: inside; }
+.alphabet[open] > summary { border-bottom: var(--bs-card-border-width) solid var(--bs-card-border-color); }
+.alphabet:not([open]) > summary { border-bottom: 0; border-radius: var(--bs-card-inner-border-radius); }
+.alphabet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(3.5rem, 1fr)); gap: .5rem; }
+.alphabet-tile {
+  display: flex; flex-direction: column; align-items: center; gap: .35rem;
+  padding: .4rem .25rem .3rem; color: var(--accent);
+  background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color); border-radius: .5rem;
+}
+.alphabet-tile svg { width: 2.5rem; height: 2.5rem; }
+.alphabet-tile span { color: var(--bs-body-color); font-weight: 600; line-height: 1; }
+button.alphabet-tile:hover, button.alphabet-tile:focus-visible { border-color: var(--accent); background: rgba(var(--accent-rgb), .1); }

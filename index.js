@@ -14,6 +14,7 @@
 //      Zoom            – preview zoom buttons
 //   8. Downloads       – SVG and PNG buttons, Copy image
 //   9. Sharing         – Copy link, and the settings kept between visits
+//  10. Alphabet        – the "How to read AIDAScript" letters
 // (sections 2 to 5 are in layout.js)
 // =============================================================================
 
@@ -1133,5 +1134,43 @@ function restore(){
   }
 }
 
+
+// =============================================================================
+// 10. Alphabet
+// =============================================================================
+
+// "How to read AIDAScript": every letter and punctuation mark as a small tile, drawn from the
+// LETTERS and PUNCTUATION tables (so it always matches the drawing), in the text color of the tile.
+// Clicking a letter types it into the text box.
+function alphabetTile(ch, tag){
+  const tile = document.createElement(tag);
+  tile.className = 'alphabet-tile';
+  const lines = characterSegments(ch, undefined).map(([x1, y1, x2, y2]) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join('');
+  tile.innerHTML = `<svg viewBox="-1.3 -1.3 2.6 2.6" aria-hidden="true">` +
+    `<circle r="0.07" fill="currentColor" opacity="0.35"/>` +
+    `<g stroke="currentColor" stroke-width="0.25" stroke-linecap="round">${lines}</g></svg><span></span>`;
+  tile.querySelector('span').textContent = ch;
+  return tile;
+}
+
+function showAlphabet(){
+  const letters = byId('alphabetLetters');
+  for (const ch of Object.keys(LETTERS)) {
+    const tile = alphabetTile(ch, 'button');
+    tile.type = 'button';
+    tile.title = `Type ${ch}`;
+    tile.onclick = () => {
+      input.focus();
+      input.setRangeText(ch, input.selectionStart, input.selectionEnd, 'end');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    letters.append(tile);
+  }
+  const marks = byId('alphabetPunctuation');
+  for (const ch of Object.keys(PUNCTUATION)) marks.append(alphabetTile(ch, 'div'));
+}
+
+showAlphabet();
 restore();
 render();

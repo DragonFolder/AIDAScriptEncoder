@@ -15,6 +15,7 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 - Your settings are remembered in your browser for next time (**Reset to defaults** clears them)
 - Long lines wrap into new columns, keeping words whole
 - Settings for size, spacing, colors and layout
+- **How to read AIDAScript**, at the bottom of the page: every letter and punctuation mark (click a letter to type it)
 - An experimental **compact** layout that packs the text into a tight blob, guided by a shape of your choice
 
 ## How AIDAScript works
@@ -92,9 +93,9 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 | `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
 | `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
 | `colors.js` | The Random colors generator |
-| `index.js` | The page: settings, drawing, preview, downloads |
+| `index.js` | The page: settings, drawing, preview, downloads, sharing, the alphabet |
 | `tests/` | The tests (see [Testing](#testing)) |
-| `images/` | The logo, the tab icon (`favicon.svg`), and the letter and punctuation pictures in this README |
+| `images/` | The logo, the tab icon (`favicon.svg`), the picture shown when a link is shared (`social-preview.png`), and the letter and punctuation pictures in this README |
 | `tools/make-letter-images.js` | Redraws those pictures (`node tools/make-letter-images.js`) |
 
 To change how a letter looks, edit the `LETTERS` table in `layout.js`; for punctuation, the `PUNCTUATION` table. Then run `node tools/make-letter-images.js` to redraw the pictures above.
