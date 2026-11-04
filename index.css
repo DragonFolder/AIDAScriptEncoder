@@ -88,8 +88,9 @@ summary:hover { color: var(--accent) !important; }
   font-family: var(--bs-font-monospace); font-size: .85rem; white-space: pre-wrap;
   box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .4);
 }
-.reading-label mark { padding: 0 .15em; border-radius: .2em; background: var(--accent); color: #000; }
-.reading-label u { text-decoration-thickness: 2px; text-underline-offset: 2px; }
+/* the word in the accent colour, the letter pointed at as a solid block of it */
+.reading-label mark { background: none; color: var(--accent); font-weight: 600; }
+.reading-label mark b { padding: 0 .12em; border-radius: .2em; background: var(--accent); color: #000; }
 
 /* While a new compact layout is being worked out, the old drawing fades */
 #preview.busy svg { opacity: .45; transition: opacity .15s; }

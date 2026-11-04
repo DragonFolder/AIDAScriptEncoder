@@ -775,7 +775,7 @@ byId('layoutNext').onclick = () => {
 
 // Pointing at the drawing (or tapping it) shows what it says: the nearest letter's word stays
 // dark while the rest fades, the letter itself turns the accent colour, and a label beside the
-// pointer shows that column's text with the word marked and the letter underlined.
+// pointer shows that column's text with the word in the accent colour and the letter as a block of it.
 // `reading` holds every drawn character of the current drawing (made again on every render):
 // { x, y } (its middle, in the drawing's pixels), its column's characters and its place in
 // them, where its word starts and ends, and the elements of its lines.
@@ -844,10 +844,10 @@ function showReading(event){
       overlay.appendChild(copy);
     }
 
-    // The label: the column's text, the word marked, the letter underlined
+    // The label: the column's text, the word marked, the letter in a block of its own
     const text = nearest.chars.join('');
     const word = document.createElement('mark');
-    const letter = document.createElement('u');
+    const letter = document.createElement('b');
     letter.textContent = text[nearest.index];
     word.append(text.slice(nearest.start, nearest.index), letter, text.slice(nearest.index + 1, nearest.end + 1));
     readingLabel.replaceChildren(text.slice(0, nearest.start).trimStart(), word, text.slice(nearest.end + 1).trimEnd());

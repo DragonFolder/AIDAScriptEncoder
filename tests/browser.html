@@ -224,7 +224,7 @@
           const u = reading.find(r => r.chars.join('').includes('quick') && r.chars[r.index] == 'u');
           pointAt(u);
           const label = doc.querySelector('.reading-label');
-          const found = label.querySelector('mark')?.textContent == 'quick' && label.querySelector('u')?.textContent == 'u' &&
+          const found = label.querySelector('mark')?.textContent == 'quick' && label.querySelector('mark b')?.textContent == 'u' &&
                         app.eval('svg').querySelectorAll('.reading-letter').length > 0;
           // every letter is found from its own middle (the overlapping compact columns included)
           const missed = reading.filter(r => { pointAt(r); return app.eval('readingNow') != r; }).length;
