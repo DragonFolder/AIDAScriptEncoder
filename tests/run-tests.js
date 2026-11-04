@@ -251,8 +251,10 @@ test('characters with no shape are drawn as spaces, accents are taken off', () =
     ['Hello, world!', 'Hello, world!'],
     ['room 101', 'room 101'],
     ['a#b@c', 'a b c'],
-    ['12:30', '12 30'],                          // (the two numbers stay apart)
-    ['2026-11-04', '2026 11 04'],
+    ['50%off', '50 off'],                        // (what it separated stays apart)
+    ['12:30 (2026-11-04)', '12:30 (2026-11-04)'],
+    ['a–b—c', 'a-b-c'],                          // (dashes are all the hyphen)
+    ['wait…', 'wait...'],
     ['Café crème', 'Cafe creme'],
     ['line 2\n8\tthree', 'line 2\n8 three'],
   ];
@@ -328,9 +330,9 @@ test('digits go half a step apart where their lines allow, and no line meets a 0
 });
 
 
-test('quote marks in a row get an extra half step, so they stay apart', () => {
+test('quote marks in a row get an extra half step (periods in a row do not)', () => {
   // the carets of two quote marks in a row end up a full step apart, twice the gap inside a "
-  for (const [text, step] of [["''", 1], ['""', 2], [`"'`, 1.25]]) {
+  for (const [text, step] of [["''", 1], ['""', 2], [`"'`, 1.25], ['..', 0.5]]) {
     const [a, b] = layout.placeLine([...layout.drawableText(text)]);
     check(b - a == step, `${text}: a step of ${b - a}, expected ${step}`);
   }

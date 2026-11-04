@@ -72,11 +72,15 @@ Digits stand apart from letters and punctuation. Within a number, each digit goe
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | ![1](images/digits/1.svg) | ![2](images/digits/2.svg) | ![3](images/digits/3.svg) | ![4](images/digits/4.svg) | ![5](images/digits/5.svg) | ![6](images/digits/6.svg) | ![7](images/digits/7.svg) | ![8](images/digits/8.svg) | ![9](images/digits/9.svg) | ![0](images/digits/0.svg) |
 
-Punctuation marks are small shapes that stand apart and never touch anything. Quote marks open with **Λ** and close with **V**, and `"` is two of them, one above the other. An apostrophe inside a word (don't) is always Λ, as is a `'` that's never closed (the dogs'). Curly quotes (‘ ’ “ ”) work too.
+Punctuation marks are small shapes that stand apart and never touch anything. Quote marks open with **Λ** and close with **V**, and `"` is two of them, one above the other. An apostrophe inside a word (don't) is always Λ, as is a `'` that's never closed (the dogs'). Curly quotes (‘ ’ “ ”) work too. Parentheses open with a cap (⊓) and close with a cup (⊔). Two quote marks in a row get an extra half line size between them, so '' doesn't read as ". The colon's two dots sit side by side, so it never looks like periods in a row.
 
 | `.` | `,` | `'` (apostrophe, opening) | `'` (closing) | `"` (opening) | `"` (closing) | `?` | `!` |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | ![period](images/punctuation/period.svg) | ![comma](images/punctuation/comma.svg) | ![apostrophe](images/punctuation/apostrophe.svg) | ![closing single quote](images/punctuation/closing-single-quote.svg) | ![opening quote](images/punctuation/opening-quote.svg) | ![closing quote](images/punctuation/closing-quote.svg) | ![question](images/punctuation/question.svg) | ![exclamation](images/punctuation/exclamation.svg) |
+
+| `-` (also – —) | `:` | `;` | `(` | `)` | `/` |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![hyphen](images/punctuation/hyphen.svg) | ![colon](images/punctuation/colon.svg) | ![semicolon](images/punctuation/semicolon.svg) | ![opening parenthesis](images/punctuation/opening-parenthesis.svg) | ![closing parenthesis](images/punctuation/closing-parenthesis.svg) | ![slash](images/punctuation/slash.svg) |
 
 ## Settings
 
@@ -131,7 +135,7 @@ Two sets of checks, worth running before merging into `main`:
 
 ## Known limitations
 
-- Symbols other than the punctuation above (`-`, `:`, `#`, emoji, …) have no shape yet, and are drawn as a space, so `12:30` reads as 12 30. Accented letters are drawn without their accents (é as e).
+- Symbols other than the punctuation above (`#`, `%`, `&`, emoji, …) have no shape yet, and are drawn as a space, so `50%` doesn't run into the next word. Accented letters are drawn without their accents (é as e).
 - In the rectangle shape, a single word taller than the maximum height runs past it.
 - The stroke width is fixed at 5 px.
 - The compact shape takes a moment with long text (about a second for 600 characters). The page stays usable meanwhile, showing "Arranging…". Opened straight from a file, some browsers don't allow the background worker, and the page then pauses instead.

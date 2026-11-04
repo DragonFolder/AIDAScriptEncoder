@@ -1178,6 +1178,12 @@ const PUNCTUATION_TILES = [
   ['”', '…"', 'A closing "'],
   ['?', '?', 'Question mark'],
   ['!', '!', 'Exclamation mark'],
+  ['-', '-', 'Hyphen or dash (also – and —)'],
+  [':', ':', 'Colon'],
+  [';', ';', 'Semicolon'],
+  ['(', '(', 'An opening parenthesis'],
+  [')', ')', 'A closing parenthesis'],
+  ['/', '/', 'Slash'],
 ];
 
 function showAlphabet(){

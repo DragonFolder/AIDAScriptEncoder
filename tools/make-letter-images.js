@@ -25,6 +25,8 @@ const middle = SIZE / 2;
 const PUNCTUATION_NAMES = {
   '.': 'period', ',': 'comma', "'": 'apostrophe', '’': 'closing-single-quote',
   '“': 'opening-quote', '”': 'closing-quote', '?': 'question', '!': 'exclamation',
+  '-': 'hyphen', ':': 'colon', ';': 'semicolon', '(': 'opening-parenthesis', ')': 'closing-parenthesis',
+  '/': 'slash',
 };
 // Drawn the same as another mark: no picture of their own
 const SAME_AS = { '‘': "'", '"': '“' };   // (and the digits, which are drawn into images/digits)

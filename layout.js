@@ -123,6 +123,12 @@ const PUNCTUATION = {
   '”': [...caret(0, false), ...caret(0.5, false)],                                // two V, one above the other: a closing "
   '?': [[-0.5, -0.5, 0.5, -0.5], [0.5, -0.5, 0, 0], [0, 0, 0, 0.5]],              // hook: top bar, diagonal to the middle, down
   '!': [[0, 0, 0, -0.5], [0, 0, -0.5, -0.5], [0, 0, 0, 0.5]],                    // a small N, NW and S
+  '-': [[-0.5, 0, 0.5, 0]],                                                       // a dash (– — − too: see drawableText)
+  ':': [[-0.5, 0, -0.5, 0], [0.5, 0, 0.5, 0]],                                    // two dots, side by side
+  ';': [[0, -0.5, 0, -0.5], [0, 0, -0.5, 0.5]],                                   // a dot, with a small SW tail below
+  '(': [[-0.5, 0.25, -0.5, -0.25], [-0.5, -0.25, 0.5, -0.25], [0.5, -0.25, 0.5, 0.25]],   // a cap: ⊓
+  ')': [[-0.5, -0.25, -0.5, 0.25], [-0.5, 0.25, 0.5, 0.25], [0.5, 0.25, 0.5, -0.25]],     // a cup: ⊔
+  '/': [[-0.5, 0.5, 0.5, -0.5]],                                                  // a diagonal
   '0': DIAMOND,                                                                   // a diamond: ◇
   '5': [[0, -0.5, 0, 0.5], [-0.5, 0, 0.5, 0]],                                    // a +
   ...Object.fromEntries(Object.keys(DIGITS).map(digit => [digit, digitMark(digit)])),
@@ -156,17 +162,20 @@ function markOneSidedNumbers(text){
 
 // The text as it's drawn:
 // - accents taken off letters (é becomes e);
+// - other ways of typing a mark made into the one we draw (see SAME_MARK: – is -, … is ...);
 // - every quote mark made into an apostrophe, an opening or a closing one (see quoteMarks);
 // - every other character with no shape (symbols, tabs, emoji, ...) drawn as a space, so what it
-//   separated stays apart (12:30 is 12 30, not 1230);
+//   separated stays apart (50% is 50 and a space, not 50 run into the next word);
 // - the digits of a number on one side of the middle line swapped for their stand-ins (see TICKED).
 // Spaces and line breaks stay.
+const SAME_MARK = { '–': '-', '—': '-', '‐': '-', '‑': '-', '−': '-', '…': '...' };
 function drawableText(text){
   // (every digit and quote mark is in PUNCTUATION; the stand-ins are never taken as typed)
   const drawn = ch => ch == ' ' || ch == '\n' || Object.hasOwn(LETTERS, ch.toLowerCase()) ||
                       (isPunctuation(ch) && !Object.hasOwn(TICKED, ch));
   const kept = [...text.normalize('NFD')]
     .filter(ch => !/\p{M}/u.test(ch))           // (the accents, split off by NFD)
+    .flatMap(ch => [...(SAME_MARK[ch] ?? ch)])
     .map(ch => drawn(ch) ? ch : ' ');
   return markOneSidedNumbers(quoteMarks(kept).join(''));
 }
@@ -214,7 +223,7 @@ function getCharShape(ch){
 // The middle point (0) is always part of a letter.
 // Punctuation uses the height of its lines, rounded out to the next quarter lineSize: every
 // position stays a whole number of quarter lineSizes, which the compact layout relies on (see
-// clashHeights). So . is a point (0), ' takes ±0.25, and the rest (" included) take ±0.5.
+// clashHeights). So . : - are flat (0), ' ( ) take ±0.25, and the rest take ±0.5.
 function letterTop(ch){
   if (isPunctuation(ch)) return Math.floor(Math.min(...punctuationYs(ch)) * 4 + 1e-9) / 4;
   return Math.min(0, ...getCharShape(ch).map(dir => dir[1]));   // -1 if a stroke points up, else 0
