@@ -239,7 +239,8 @@ function pickRandomColors(){
 byId('randomColors').onclick = () => { pickRandomColors(); render(); };
 
 // "Surprise me": the compact shape with a random look: guide shape, its stretch and turn, how
-// closely to follow it, column colors, frame and colors. The text, the sizes, the transparent
+// closely to follow it, column colors, frame and colors, and then a random one of the layouts
+// found for it (picked when they're drawn, see renderCompact: they may still be on their way). The text, the sizes, the transparent
 // background and the line end settings stay as they are. Plain choices (no stretch, no turn)
 // come up half the time, so not every surprise is lopsided.
 function surpriseMe(){
@@ -255,8 +256,10 @@ function surpriseMe(){
   byId('setFrameWidth').value = one([3, 5, 8]);
   byId('setFrameSameColor').checked = Math.random() < 0.6;
   pickRandomColors();
+  randomLayoutWanted = true;
   render();
 }
+let randomLayoutWanted = false;   // (see surpriseMe; dropped when the text changes)
 byId('surpriseMe').onclick = surpriseMe;
 
 // Each setting's "?" explains it (its data-tip) in a box above it, or below it if there's no
@@ -600,23 +603,34 @@ let layoutChoice = 0;   // which of them is shown
 
 let layoutWorker = null;
 let workerFailed = false;       // no worker: lay out on the page
+let workerFailures = 0;         // how many times in a row a worker failed (see startWorker)
 let pending = null;             // what the worker is working on: { key, type, started }
 let lastLayoutTime = 0;         // how long the last layout took (see scheduleRender)
 
+// A worker can fail now and then without anything being wrong (restarted in quick succession,
+// say, it can fail to load layout.js), so it's simply started again; only after this many
+// failures in a row is the layout done on the page instead
+const WORKER_RETRIES = 3;
+
 function startWorker(){
+  let worker;
   try {
-    layoutWorker = new Worker('layout-worker.js');
-  } catch {
+    worker = new Worker('layout-worker.js');
+  } catch {   // (not allowed at all, e.g. for a page opened straight from a file)
     workerFailed = true;
     return;
   }
-  layoutWorker.onmessage = ({ data }) => workerReply(data);
-  layoutWorker.onerror = () => {   // (e.g. the file can't be loaded): lay out on the page from now on
-    layoutWorker.terminate();
+  layoutWorker = worker;
+  worker.onmessage = ({ data }) => { workerFailures = 0; workerReply(data); };
+  worker.onerror = event => {
+    event.preventDefault();
+    worker.terminate();
+    if (worker != layoutWorker) return;   // (one already replaced: nothing to do)
     layoutWorker = null;
-    workerFailed = true;
     pending = null;
     showBusy(false);
+    if (++workerFailures >= WORKER_RETRIES) workerFailed = true;   // (from now on, on the page)
+    layoutCache.key = null;   // (so the layouts are asked for again)
     render();
   };
 }
@@ -767,6 +781,10 @@ function drawLineGuide(chars, positions, x, y){
 // Returns the image size.
 function renderCompact(textLines){
   const layouts = layoutCache.layouts;   // (ready: see layoutsReady)
+  if (randomLayoutWanted) {   // ("Surprise me": any of the layouts found, not just the best)
+    layoutChoice = Math.floor(Math.random() * layouts.length);
+    randomLayoutWanted = false;
+  }
   layoutChoice = Math.min(layoutChoice, layouts.length - 1);
   showLayoutChoice(layouts.length);
   const columns = layouts[layoutChoice];
@@ -906,7 +924,10 @@ byId('dlPng').onclick = () => {
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString());
 };
 
-input.addEventListener('input', scheduleRender);
+input.addEventListener('input', () => {
+  randomLayoutWanted = false;   // (a surprise is for the text it was asked for)
+  scheduleRender();
+});
 
 const settings = byId('settings');
 settings.addEventListener('input', scheduleRender);

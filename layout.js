@@ -887,9 +887,14 @@ function flowColumns(textLines, r, startX = r * guideShape().left + CONFIG.lineS
           best ??= closest;
         }
         else {
-          // Last resort: a column that doesn't overlap the previous one
-          const attempt = fill(words, i, lastX + FALLBACK_PITCH * L, keepSpaces);
-          if (attempt.next > i) best = attempt;
+          // Last resort: a column that doesn't overlap the previous one, or failing that, one
+          // further on. (In a narrow corner of a stretched or turned guide shape, the columns
+          // grow taller only slowly, so a long word may need to go some way along.)
+          const right = r * guideShape().right;
+          for (let x = lastX + FALLBACK_PITCH * L; x + L <= right + 1e-9; x += L / 2) {
+            const attempt = fill(words, i, x, keepSpaces);
+            if (attempt.next > i) { best = attempt; break; }
+          }
         }
         if (!best) return null;
       }
@@ -909,6 +914,8 @@ const RADIUS_SEARCH_FINE = 0.15;
 // stopping early once this many bigger circles in a row haven't found anything better
 const RADIUS_SEARCH = 1;
 const GIVE_UP_AFTER = 4;
+// ...and never for longer than this many milliseconds (a safety net: normally it takes far less)
+const SEARCH_TIME_LIMIT = 3000;
 // ...but always at least this many lineSizes bigger (short texts have small circles)
 const RADIUS_SEARCH_MIN = 5;
 
@@ -961,7 +968,9 @@ function compactLayouts(textLines){
 
   // The smallest radius anything fits in: double it until the text fits, then narrow it down
   let low = 0, high = L + halfStroke;
-  for (let k = 0; layoutsAt(high, false).length == 0 && k < 30; k++) {
+  for (let k = 0; layoutsAt(high, false).length == 0; k++) {
+    // (it should always fit eventually; if it somehow never does, give up rather than search on)
+    if (k == 30) return { layouts: [[]], more: () => false };
     low = high;
     high *= 2;
   }
@@ -986,8 +995,10 @@ function compactLayouts(textLines){
   let sinceBest = 0;
   const found = [];   // every layout looked at, for the alternatives
   const furthest = Math.max(high * (1 + RADIUS_SEARCH), high + RADIUS_SEARCH_MIN * L);
+  const deadline = Date.now() + SEARCH_TIME_LIMIT;
   for (let R = high; R <= furthest; R += R < high * (1 + RADIUS_SEARCH_FINE) ? L / 4 : L) {
     if (R >= high * (1 + RADIUS_SEARCH_FINE) && sinceBest >= GIVE_UP_AFTER) break;
+    if (best && Date.now() > deadline) break;   // (taking too long: the best found so far will do)
     sinceBest++;
     for (const layout of layoutsAt(R)) {
       const judged = judge(layout);
