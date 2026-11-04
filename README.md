@@ -94,7 +94,7 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 | `colors.js` | The Random colors generator |
 | `index.js` | The page: settings, drawing, preview, downloads |
 | `tests/` | The tests (see [Testing](#testing)) |
-| `images/` | The letter and punctuation pictures in this README |
+| `images/` | The logo, the tab icon (`favicon.svg`), and the letter and punctuation pictures in this README |
 | `tools/make-letter-images.js` | Redraws those pictures (`node tools/make-letter-images.js`) |
 
 To change how a letter looks, edit the `LETTERS` table in `layout.js`; for punctuation, the `PUNCTUATION` table. Then run `node tools/make-letter-images.js` to redraw the pictures above.

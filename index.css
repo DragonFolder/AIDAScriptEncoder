@@ -37,6 +37,7 @@
 .app-container { max-width: 960px; }   /* the navbar's and the page's width */
 .app-navbar { border-bottom: 2px solid var(--accent); }
 .app-navbar .navbar-brand { color: var(--accent); letter-spacing: .02em; }
+.app-logo { height: 1.75rem; width: auto; }
 summary { cursor: pointer; }
 summary:hover { color: var(--accent) !important; }
 
