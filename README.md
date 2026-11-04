@@ -61,7 +61,7 @@ Punctuation marks are small shapes that stand apart and never touch anything:
 | Frame color | same as line color | Compact only: the frame's color; untick **Same as line color** to pick a different one |
 | Frame thickness | 5 px | Compact only: how thick the frame is drawn (the lines stay 5 px) |
 | Show line guides | off | Compact only: shows where each column runs (preview only) |
-| Line / background color | black / white | Colors of the drawing |
+| Line / background color | black / white | Colors of the drawing. **🎲 Random colors** picks line, second line, frame and background colors that go together (a random color-wheel harmony, mood and background style, always with clear contrast; the name of the combination shows next to the button); it leaves **Same as line color** as it is |
 | Column colors | One color | Compact only: give every column the line color, or alternate it with the **second line color**, so overlapping columns are easy to tell apart |
 
 In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview step through the best few different layouts for the same text.

@@ -43,19 +43,19 @@
 
                 <div class="row g-3" data-pane="size">
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setPadding" class="form-label small">Padding (px)</label>
+                    <label for="setPadding" class="form-label small">Padding (px) <span class="tip" tabindex="0" role="button" aria-label="About Padding: Empty space around the drawing." data-tip="Empty space around the drawing.">?</span></label>
                     <input id="setPadding" type="number" class="form-control form-control-sm" min="0" step="1" value="30">
                   </div>
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setLineSize" class="form-label small">Line size (px)</label>
+                    <label for="setLineSize" class="form-label small">Line size (px) <span class="tip" tabindex="0" role="button" aria-label="About Line size: Length of one stroke. Scales everything." data-tip="Length of one stroke. Scales everything.">?</span></label>
                     <input id="setLineSize" type="number" class="form-control form-control-sm" min="1" step="1" value="20">
                   </div>
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setLineSpacing" class="form-label small">Line spacing (px)</label>
+                    <label for="setLineSpacing" class="form-label small">Line spacing (px) <span class="tip" tabindex="0" role="button" aria-label="About Line spacing: Extra gap between columns." data-tip="Extra gap between columns.">?</span></label>
                     <input id="setLineSpacing" type="number" class="form-control form-control-sm" min="0" step="1" value="10">
                   </div>
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setMaxHeight" class="form-label small">Maximum height (px)</label>
+                    <label for="setMaxHeight" class="form-label small">Maximum height (px) <span class="tip" tabindex="0" role="button" aria-label="About Maximum height: How tall a column gets before wrapping." data-tip="How tall a column gets before wrapping.">?</span></label>
                     <input id="setMaxHeight" type="number" class="form-control form-control-sm" min="1" step="10" value="400">
                   </div>
                 </div>
@@ -63,7 +63,7 @@
                 <div class="row g-3 d-none" data-pane="shape">
                   <div class="col-6 col-md-3" data-setting>
                     <label for="setShape" class="form-label small">
-                      Shape <span id="compactBadge" class="badge text-bg-warning ms-1" title="The compact shape is an experimental feature: results and speed may change" hidden>Experimental</span>
+                      Shape <span id="compactBadge" class="badge text-bg-warning ms-1" title="The compact shape is an experimental feature: results and speed may change" hidden>Experimental</span> <span class="tip" tabindex="0" role="button" aria-label="About Shape: Rectangle: plain columns. Compact: a tight, overlapping blob." data-tip="Rectangle: plain columns. Compact: a tight, overlapping blob.">?</span>
                     </label>
                     <select id="setShape" class="form-select form-select-sm">
                       <option value="rectangle" selected>Rectangle</option>
@@ -71,7 +71,7 @@
                     </select>
                   </div>
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setGuideShape" class="form-label small">Guide shape</label>
+                    <label for="setGuideShape" class="form-label small">Guide shape <span class="tip" tabindex="0" role="button" aria-label="About Guide shape: Aim for a round or a square result." data-tip="Aim for a round or a square result.">?</span></label>
                     <select id="setGuideShape" class="form-select form-select-sm">
                       <option value="circle" selected>Circle</option>
                       <option value="square">Square</option>
@@ -80,40 +80,45 @@
                   <div id="compactOptions" class="col-12 col-md-6 d-flex flex-column justify-content-end" data-setting>
                     <div class="form-check">
                       <input id="setExtendEnds" type="checkbox" class="form-check-input" checked>
-                      <label for="setExtendEnds" class="form-check-label small">Extend free line ends</label>
+                      <label for="setExtendEnds" class="form-check-label small">Extend free line ends <span class="tip" tabindex="0" role="button" aria-label="About Extend free line ends: Lengthens loose stroke tips by half a line." data-tip="Lengthens loose stroke tips by half a line.">?</span></label>
                     </div>
                     <div class="form-check mb-1">
                       <input id="setShowGuide" type="checkbox" class="form-check-input">
-                      <label for="setShowGuide" class="form-check-label small">Show line guides (preview only)</label>
+                      <label for="setShowGuide" class="form-check-label small">Show line guides (preview only) <span class="tip" tabindex="0" role="button" aria-label="About Show line guides: Traces each column. Not downloaded." data-tip="Traces each column. Not downloaded.">?</span></label>
                     </div>
                   </div>
                 </div>
 
                 <div class="row g-3 d-none" data-pane="colors">
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setLineColor" class="form-label small">Line color</label>
+                    <label for="setLineColor" class="form-label small">Line color <span class="tip" tabindex="0" role="button" aria-label="About Line color: Color of the strokes." data-tip="Color of the strokes.">?</span></label>
                     <input id="setLineColor" type="color" class="form-control form-control-sm form-control-color w-100" value="#000000">
                   </div>
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setColumnColours" class="form-label small">Column colors</label>
+                    <label for="setColumnColours" class="form-label small">Column colors <span class="tip" tabindex="0" role="button" aria-label="About Column colors: Gives neighbouring columns different colors." data-tip="Gives neighbouring columns different colors.">?</span></label>
                     <select id="setColumnColours" class="form-select form-select-sm">
                       <option value="single" selected>One color</option>
                       <option value="alternate">Alternate two</option>
                     </select>
                   </div>
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setSecondColor" class="form-label small">Second line color</label>
+                    <label for="setSecondColor" class="form-label small">Second line color <span class="tip" tabindex="0" role="button" aria-label="About Second line color: Used by &quot;Alternate two&quot;." data-tip="Used by &quot;Alternate two&quot;.">?</span></label>
                     <input id="setSecondColor" type="color" class="form-control form-control-sm form-control-color w-100" value="#1971c2">
                   </div>
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setBgColor" class="form-label small">Background color</label>
+                    <label for="setBgColor" class="form-label small">Background color <span class="tip" tabindex="0" role="button" aria-label="About Background color: Color behind the drawing." data-tip="Color behind the drawing.">?</span></label>
                     <input id="setBgColor" type="color" class="form-control form-control-sm form-control-color w-100" value="#ffffff">
+                  </div>
+                  <div class="col-12">
+                    <button id="randomColors" type="button" class="btn btn-sm btn-outline-primary">🎲 Random colors</button>
+                    <span class="tip" tabindex="0" role="button" aria-label="About Random colors: Picks line, frame and background colors that match." data-tip="Picks line, frame and background colors that match.">?</span>
+                    <span id="randomColorsName" class="small text-body-secondary ms-2" aria-live="polite"></span>
                   </div>
                 </div>
 
                 <div class="row g-3 d-none" data-pane="frame">
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setFrame" class="form-label small">Frame</label>
+                    <label for="setFrame" class="form-label small">Frame <span class="tip" tabindex="0" role="button" aria-label="About Frame: A border around the result. Never changes the layout." data-tip="A border around the result. Never changes the layout.">?</span></label>
                     <select id="setFrame" class="form-select form-select-sm">
                       <option value="none" selected>None</option>
                       <option value="guide">Guide shape</option>
@@ -122,7 +127,7 @@
                     </select>
                   </div>
                   <div id="frameColorPanel" class="col-6 col-md-3" data-setting>
-                    <label for="setFrameColor" class="form-label small">Frame color</label>
+                    <label for="setFrameColor" class="form-label small">Frame color <span class="tip" tabindex="0" role="button" aria-label="About Frame color: Color of the frame." data-tip="Color of the frame.">?</span></label>
                     <input id="setFrameColor" type="color" class="form-control form-control-sm form-control-color w-100" value="#000000">
                     <div class="form-check mt-1">
                       <input id="setFrameSameColor" type="checkbox" class="form-check-input" checked>
@@ -130,7 +135,7 @@
                     </div>
                   </div>
                   <div class="col-6 col-md-3" data-setting>
-                    <label for="setFrameWidth" class="form-label small">Frame thickness (px)</label>
+                    <label for="setFrameWidth" class="form-label small">Frame thickness (px) <span class="tip" tabindex="0" role="button" aria-label="About Frame thickness: How thick the frame is." data-tip="How thick the frame is.">?</span></label>
                     <input id="setFrameWidth" type="number" class="form-control form-control-sm" min="1" step="1" value="5">
                   </div>
                 </div>

@@ -46,6 +46,20 @@ summary:hover { color: var(--accent) !important; }
 .settings-tabs .nav-link:hover { color: var(--accent); }
 .settings-tabs .nav-link.active { color: #000; background-color: var(--accent); }
 
+/* A setting's "?" and the explanation it shows (see showTip in index.js) */
+.tip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1rem; height: 1rem; margin-left: .25rem; vertical-align: text-top;
+  border: 1px solid var(--bs-secondary-color); border-radius: 50%;
+  color: var(--bs-secondary-color); font-size: .65rem; font-weight: 600; line-height: 1; cursor: help;
+}
+.tip:hover, .tip:focus { color: var(--accent); border-color: var(--accent); outline: none; }
+.tip-box {
+  position: absolute; z-index: 1080; display: none; max-width: 260px; pointer-events: none;
+  padding: .4rem .6rem; border-radius: .375rem; background: #000; color: #fff;
+  font-size: .8rem; line-height: 1.35; box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .4);
+}
+
 #input { font-family: var(--bs-font-monospace); resize: vertical; }
 #preview { min-height: 160px; }
 #preview svg { display: block; }
