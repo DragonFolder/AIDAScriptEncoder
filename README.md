@@ -12,7 +12,7 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 - Download as SVG or PNG
 - Long lines wrap into new columns, keeping words whole
 - Settings for size, spacing, colors and layout
-- An experimental **compact** layout that packs the text into a tight, round or square blob
+- An experimental **compact** layout that packs the text into a tight blob, guided by a shape of your choice
 
 ## How AIDAScript works
 
@@ -55,14 +55,20 @@ Punctuation marks are small shapes that stand apart and never touch anything:
 | Line spacing | 10 px | Gap between columns (rectangle only) |
 | Maximum height | 400 px | How tall a column may get before wrapping (rectangle only) |
 | Shape | Rectangle | **Rectangle**: plain columns. **Compact** (experimental): packs the text as tightly as possible, with overlapping columns that never touch |
-| Guide shape | Circle | Compact only: aim for a round or a square result |
+| Guide shape | Circle | Compact only: the shape to aim for: circle, rectangle, hexagon, diamond or triangle |
+| Width : height | 1 : 1 | Compact only: stretches the guide shape (a circle becomes an oval, the rectangle starts out square) |
+| Rotation | 0° | Compact only: turns the guide shape, up to 180° |
+| Fit to guide | Tightest | Compact only: from the tightest result to one that fills out the guide shape more closely |
 | Extend free line ends | on | Compact only: lengthens strokes whose tips touch nothing (and either end of the N/S overlap marker), to fill empty space |
-| Frame | None | Compact only: a border around the result: the **guide shape** (circle or square), the **smallest rectangle**, or a **blob** (the tightest outline without dents, with rounded corners). Only the guide shape affects the layout |
+| Frame | None | Compact only: a border around the result: the **guide shape**, the **smallest rectangle**, or a **blob** (the tightest outline without dents, with rounded corners). Only the guide shape affects the layout |
 | Frame color | same as line color | Compact only: the frame's color; untick **Same as line color** to pick a different one |
 | Frame thickness | 5 px | Compact only: how thick the frame is drawn (the lines stay 5 px) |
 | Show line guides | off | Compact only: shows where each column runs (preview only) |
+| Transparent | off | No background: the downloaded PNG and SVG are see-through (the preview shows a checkerboard) |
 | Line / background color | black / white | Colors of the drawing. **🎲 Random colors** picks line, second line, frame and background colors that go together (a random color-wheel harmony, mood and background style, always with clear contrast; the name of the combination shows next to the button); it leaves **Same as line color** as it is |
 | Column colors | One color | Compact only: give every column the line color, or alternate it with the **second line color**, so overlapping columns are easy to tell apart |
+
+**🎲 Surprise me**, above the preview, switches to the compact shape with a random guide shape, stretch, rotation, frame and colors (the text and sizes stay as they are).
 
 In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview step through the best few different layouts for the same text.
 
@@ -72,13 +78,15 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 |---|---|
 | `index.html` | Page layout and settings panel |
 | `index.css` | Styling (teal accent on top of Bootstrap) |
-| `index.js` | Everything else; the sections are listed at the top of the file |
+| `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
+| `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
+| `index.js` | The page: settings, drawing, preview, downloads |
 
-To change how a letter looks, edit the `LETTERS` table in `index.js`; for punctuation, the `PUNCTUATION` table.
+To change how a letter looks, edit the `LETTERS` table in `layout.js`; for punctuation, the `PUNCTUATION` table.
 
 ## Known limitations
 
 - Digits and other symbols (`0`–`9`, `-`, `:`, …) are drawn as a small dot.
 - In the rectangle shape, a single word taller than the maximum height runs past it.
 - The stroke width is fixed at 5 px.
-- The compact shape is slower with long text (a few hundred milliseconds for about 600 characters).
+- The compact shape takes a moment with long text (about a second for 600 characters). The page stays usable meanwhile, showing "Arranging…". Opened straight from a file, some browsers don't allow the background worker, and the page then pauses instead.

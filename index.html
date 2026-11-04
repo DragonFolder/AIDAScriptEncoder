@@ -171,7 +171,18 @@
       <div class="col-xl-6">
         <div class="card shadow-sm preview-card">
           <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <span class="fw-semibold">Preview <span id="layoutBusy" class="small fw-normal text-body-secondary ms-2" role="status" hidden>Arranging…</span></span>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span class="fw-semibold">Preview</span>
+              <!-- The same choice as Settings → Shape, kept in step with it (see readSettings) -->
+              <div class="btn-group btn-group-sm" role="group" aria-label="Shape">
+                <input type="radio" class="btn-check" name="quickShape" id="quickRectangle" value="rectangle" autocomplete="off">
+                <label class="btn btn-outline-primary" for="quickRectangle">Rectangle</label>
+                <input type="radio" class="btn-check" name="quickShape" id="quickCompact" value="compact" autocomplete="off">
+                <label class="btn btn-outline-primary" for="quickCompact">Compact ✨</label>
+              </div>
+              <button id="surpriseMe" type="button" class="btn btn-sm btn-outline-primary text-nowrap" title="A random compact look: shape, frame and colors">🎲 Surprise me</button>
+              <span id="layoutBusy" class="small text-body-secondary" role="status" hidden>Arranging…</span>
+            </div>
             <div class="d-flex flex-wrap gap-2">
               <div id="layoutPicker" class="btn-group btn-group-sm" role="group" aria-label="Try another layout" hidden>
                 <button id="layoutPrev" type="button" class="btn btn-outline-secondary" aria-label="Previous layout" title="Previous layout">‹</button>
@@ -191,6 +202,12 @@
           </div>
           <div class="card-body overflow-auto">
             <div id="preview"></div>
+          </div>
+          <!-- A nudge towards the compact shape, until it's been tried or closed (see showCompactHint) -->
+          <div id="compactHint" class="card-footer compact-hint small d-flex align-items-center gap-2 d-none">
+            <span>✨ Try the <strong>Compact</strong> shape: the same text, packed into a shape you choose.</span>
+            <button id="compactHintTry" type="button" class="btn btn-sm btn-primary ms-auto text-nowrap">Try it</button>
+            <button id="compactHintClose" type="button" class="btn-close" aria-label="Don't show this again" title="Don't show this again"></button>
           </div>
         </div>
       </div>

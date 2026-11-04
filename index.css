@@ -79,6 +79,8 @@ summary:hover { color: var(--accent) !important; }
 #preview svg.transparent { background: repeating-conic-gradient(#d0d0d0 0 25%, #ffffff 0 50%) 0 0 / 16px 16px; }
 /* While a new compact layout is being worked out, the old drawing fades */
 #preview.busy svg { opacity: .45; transition: opacity .15s; }
+/* The hint suggesting the compact shape, under the preview */
+.compact-hint { border-left: 3px solid var(--accent); }
 #zoomReset { min-width: 4rem; }   /* room for "400%" without the buttons shifting */
 .layout-label { min-width: 6.5rem; opacity: 1 !important; }   /* room for "Layout 8 / 8"; a label, so not greyed out */
 

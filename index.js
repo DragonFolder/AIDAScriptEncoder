@@ -77,12 +77,41 @@ function readSettings(){
   byId('setFrameColor').classList.toggle('d-none', CONFIG.frameSameColor);
   byId('setBgColor').classList.toggle('d-none', CONFIG.transparent);
   byId('compactBadge').hidden = !compact;
+  byId(compact ? 'quickCompact' : 'quickRectangle').checked = true;
+  if (compact) compactHintDone();   // (tried it: no need to suggest it any more)
+  showCompactHint(!compact);
   byId('layoutPicker').hidden = !compact;
 
   // The Frame tab only for the compact shape (leaving it if it was open)
   byId('frameTab').classList.toggle('d-none', !compact);
   if (!compact && settingsTab == 'frame') showSettingsTab('shape');
 }
+
+// The Rectangle | Compact switch above the preview: the same as Settings → Shape
+document.querySelectorAll('[name=quickShape]').forEach(radio => radio.onchange = () => {
+  byId('setShape').value = radio.value;
+  render();
+});
+
+// The hint under the preview suggesting the compact shape: shown with the rectangle shape until
+// the compact shape has been tried once, or the hint closed. That's remembered in this browser
+// (if it can't be, the hint just shows again next time).
+const COMPACT_HINT_KEY = 'aidascript.compactHintDone';
+function hintIsDone(){
+  try { return localStorage.getItem(COMPACT_HINT_KEY) == '1'; } catch { return false; }
+}
+function compactHintDone(){
+  try { localStorage.setItem(COMPACT_HINT_KEY, '1'); } catch {}
+  showCompactHint(false);
+}
+function showCompactHint(wanted){
+  byId('compactHint').classList.toggle('d-none', !wanted || hintIsDone());
+}
+byId('compactHintTry').onclick = () => {
+  byId('setShape').value = 'compact';
+  render();
+};
+byId('compactHintClose').onclick = compactHintDone;
 
 // The settings are split into tabs (Size, Shape, Colors, Frame), showing one group at a time
 let settingsTab = 'size';
@@ -198,15 +227,37 @@ function contrast(a, b){
   return (x + 0.05) / (y + 0.05);
 }
 
-byId('randomColors').onclick = () => {
+// Put a new set of random colors into the settings panel (render() shows them)
+function pickRandomColors(){
   const { line, second, frame, background, name } = randomColors();
   byId('setLineColor').value = line;
   byId('setSecondColor').value = second;
   byId('setFrameColor').value = frame;   // ("Same as line color" stays as it is)
   byId('setBgColor').value = background;
   byId('randomColorsName').textContent = name;   // what was picked, e.g. "Triadic · muted · deep background"
+}
+byId('randomColors').onclick = () => { pickRandomColors(); render(); };
+
+// "Surprise me": the compact shape with a random look: guide shape, its stretch and turn, how
+// closely to follow it, column colors, frame and colors. The text, the sizes, the transparent
+// background and the line end settings stay as they are. Plain choices (no stretch, no turn)
+// come up half the time, so not every surprise is lopsided.
+function surpriseMe(){
+  const one = list => list[Math.floor(Math.random() * list.length)];
+  const half = () => Math.random() < 0.5;
+  byId('setShape').value = 'compact';
+  byId('setGuideShape').value = one(['circle', 'rectangle', 'hexagon', 'diamond', 'triangle']);
+  byId('setGuideRatio').value = half() ? 1 : one([0.6, 0.7, 0.8, 1.2, 1.4, 1.6, 1.8]);
+  byId('setGuideRotation').value = half() ? 0 : one([15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165]);
+  byId('setGuideFit').value = one([0, 30, 60, 100]);
+  byId('setColumnColours').value = one(['single', 'alternate']);
+  byId('setFrame').value = one(['none', 'guide', 'guide', 'rectangle', 'blob']);
+  byId('setFrameWidth').value = one([3, 5, 8]);
+  byId('setFrameSameColor').checked = Math.random() < 0.6;
+  pickRandomColors();
   render();
-};
+}
+byId('surpriseMe').onclick = surpriseMe;
 
 // Each setting's "?" explains it (its data-tip) in a box above it, or below it if there's no
 // room above, kept on screen. Shown while pointed at or focused (tapping it focuses it).
