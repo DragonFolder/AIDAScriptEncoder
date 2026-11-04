@@ -209,6 +209,60 @@
         return [svgText.includes('xmlns') && !svgText.includes('class="guide"') && loaded && img.width > 0, img.width + '×' + img.height];
       });
 
+      await step('pointing at a letter shows its word, in both shapes and when zoomed', async () => {
+        const seen = [];
+        const pointAt = item => {
+          const p = new app.DOMPoint(item.x, item.y).matrixTransform(app.eval('svg').getScreenCTM());
+          byId('preview').dispatchEvent(new app.PointerEvent('pointermove', { bubbles: true, clientX: p.x + 2, clientY: p.y - 1, pointerType: 'mouse' }));
+        };
+        for (const [shape, zoom] of [['rectangle', 1], ['compact', 1], ['compact', 2]]) {
+          byId('setShape').value = shape;
+          setText('the quick brown fox');
+          await settled(app);
+          app.eval(`zoom = ${zoom}; applyZoom()`);
+          const reading = app.eval('reading');
+          const u = reading.find(r => r.chars.join('').includes('quick') && r.chars[r.index] == 'u');
+          pointAt(u);
+          const label = doc.querySelector('.reading-label');
+          const found = label.querySelector('mark')?.textContent == 'quick' && label.querySelector('u')?.textContent == 'u' &&
+                        app.eval('svg').querySelectorAll('.reading-letter').length > 0;
+          // every letter is found from its own middle (the overlapping compact columns included)
+          const missed = reading.filter(r => { pointAt(r); return app.eval('readingNow') != r; }).length;
+          seen.push(`${shape} ${zoom * 100}%: ${found && missed == 0 ? 'ok' : 'wrong'}`);
+          byId('preview').dispatchEvent(new app.PointerEvent('pointerleave', { pointerType: 'mouse' }));
+        }
+        app.eval('zoom = 1; applyZoom()');
+        return [seen.every(s => s.endsWith('ok')), seen.join(', ')];
+      });
+
+      await step('the downloads carry the text: SVG title, PNG description', async () => {
+        setText('the quick brown fox\nñ 文字');
+        await settled(app);
+        const svgText = app.eval('svgString()');
+        const title = new DOMParser().parseFromString(svgText, 'image/svg+xml').documentElement.firstElementChild;
+        const svgOk = title.tagName == 'title' && title.textContent == 'the quick brown fox\nñ 文字';
+        // The PNG, made as the download makes it, then read back chunk by chunk
+        const img = new Image();
+        await new Promise(resolve => { img.onload = resolve; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText); });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        const plain = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const png = new Uint8Array(await (await app.eval('pngWithText')(plain, app.eval('drawingText()'))).arrayBuffer());
+        const view = new DataView(png.buffer);
+        let at = 8, description = null, checksums = true;
+        while (at < png.length) {
+          const length = view.getUint32(at), type = String.fromCharCode(...png.subarray(at + 4, at + 8));
+          if (app.eval('crc32')(png.subarray(at + 4, at + 8 + length)) != view.getUint32(at + 8 + length)) checksums = false;
+          if (type == 'iTXt') description = new TextDecoder().decode(png.subarray(at + 8, at + 8 + length)).split('\0').pop();
+          at += 12 + length;
+        }
+        let picture = false;
+        try { picture = (await createImageBitmap(new Blob([png], { type: 'image/png' }))).width == img.width; } catch {}
+        return [svgOk && description == 'the quick brown fox\nñ 文字' && checksums && picture,
+                `SVG title ${svgOk ? 'ok' : 'wrong'}, PNG description ${description == null ? 'missing' : 'ok'}, still a picture: ${picture}`];
+      });
+
       await step('Surprise me, clicked quickly 60 times: no freeze, still in the background', async () => {
         setText('the quick brown fox jumps over the lazy dog. hello world?');
         await settled(app);

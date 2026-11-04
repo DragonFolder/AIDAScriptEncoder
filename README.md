@@ -8,7 +8,8 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 
 ## Features
 
-- Live preview, with zoom (25%–400%)
+- Live preview, with zoom (25%–400%): point at a letter (or tap it) to see what it says
+- The text is kept inside the downloads: as the SVG's title, and as the PNG's description
 - Download as SVG or PNG
 - Long lines wrap into new columns, keeping words whole
 - Settings for size, spacing, colors and layout

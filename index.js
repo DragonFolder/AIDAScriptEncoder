@@ -204,8 +204,9 @@ function el(tag, attrs = {}, parent){
 }
 
 // One stroke, in pixels
+// (returns the element)
 function drawLine(x1, y1, x2, y2, colour = CONFIG.stroke.color){
-  el('line', { x1, y1, x2, y2, stroke: colour, 'stroke-width': CONFIG.stroke.width, 'stroke-linecap': 'round' }, svg);
+  return el('line', { x1, y1, x2, y2, stroke: colour, 'stroke-width': CONFIG.stroke.width, 'stroke-linecap': 'round' }, svg);
 }
 
 // Every line of a column, in pixels, ready to draw. x is the column's middle and y the pixel
@@ -221,7 +222,7 @@ function columnLines(chars, positions, x, y){
     const cy = y + positions[i] * L;
     const punctuation = isPunctuation(ch);
     for (const [x1, y1, x2, y2] of characterSegments(ch, chars[i - 1])) {
-      const line = { x1: x + L*x1, y1: cy + L*y1, x2: x + L*x2, y2: cy + L*y2, punctuation, kind: null };
+      const line = { x1: x + L*x1, y1: cy + L*y1, x2: x + L*x2, y2: cy + L*y2, punctuation, kind: null, char: i };
       line.middle = [(line.x1 + line.x2) / 2, (line.y1 + line.y2) / 2];
       const hasLength = x1 != x2 || y1 != y2;
       if (!punctuation && hasLength) line.kind = x1 == 0 && y1 == 0 ? 'stroke' : 'marker';
@@ -301,8 +302,9 @@ function linesBox(lines){
 
 // Draw lines (see columnLines), moved by dx, dy
 // (in each line's own `colour`, if it has one)
+// (each line keeps its element, as `element`, for reading the drawing: see readingMap)
 function drawLines(lines, dx = 0, dy = 0){
-  for (const l of lines) drawLine(l.x1 + dx, l.y1 + dy, l.x2 + dx, l.y2 + dy, l.colour);
+  for (const l of lines) l.element = drawLine(l.x1 + dx, l.y1 + dy, l.x2 + dx, l.y2 + dy, l.colour);
 }
 
 // The colour of the n-th column (counting only columns with something in them), see CONFIG.columnColours
@@ -635,6 +637,11 @@ function render(){
   }
   svg.classList.toggle('transparent', CONFIG.transparent);
 
+  // What it says, for screen readers (downloads get it as a title instead, see svgString)
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', drawingText() ? 'AIDAScript: ' + drawingText() : 'AIDAScript (empty)');
+  hideReading();
+
   applyZoom();   // the new drawing keeps the current zoom
   lastRenderTime = performance.now() - started;
 }
@@ -645,14 +652,20 @@ function renderRectangle(textLines){
   let column = 0;   // counts the columns actually drawn, including wrapped ones
   const lines = [];
 
+  const columns = [];
   for (const textLine of textLines) {
     for (const chars of wrapLine(textLine)) {
       const x = padding.left + lineSize + (lineSize*2 + lineSpacing) * column;
-      lines.push(...columnLines(chars, placeLine(chars), x, padding.top));
+      const positions = placeLine(chars);
+      const own = columnLines(chars, positions, x, padding.top);
+      for (const line of own) line.column = column;
+      lines.push(...own);
+      columns.push({ chars, positions, x, y: padding.top });
       column++;
     }
   }
   drawLines(lines);   // (free line ends are only extended in the compact shape)
+  readingMap(columns, lines);
 
   // The drawing plus padding (at least the padding, when there's nothing to draw)
   const box = linesBox(lines);
@@ -691,13 +704,13 @@ function renderCompact(textLines){
   // Each column's lines, in its colour
   const lines = [];
   let filled = 0;
-  for (const c of columns) {
+  columns.forEach((c, column) => {
     const own = columnLines(c.chars, c.positions, c.x, c.y);
-    if (own.length == 0) continue;
+    if (own.length == 0) return;
     const colour = columnColour(filled++);
-    for (const line of own) line.colour = colour;
+    for (const line of own) { line.colour = colour; line.column = column; }
     lines.push(...own);
-  }
+  });
   const { padding } = CONFIG;
   if (lines.length == 0) return [padding.left + padding.right, padding.top + padding.bottom];
 
@@ -713,6 +726,7 @@ function renderCompact(textLines){
   // Move the drawing to just inside the padding
   const dx = padding.left - extent.left, dy = padding.top - extent.top;
   drawLines(lines, dx, dy);
+  readingMap(columns, lines, dx, dy);
   if (frame) {
     const colour = CONFIG.frameSameColor ? CONFIG.stroke.color : CONFIG.frameColor;
     const look = { fill: 'none', stroke: colour, 'stroke-width': CONFIG.frameWidth, 'stroke-linejoin': 'round' };
@@ -753,6 +767,109 @@ byId('layoutNext').onclick = () => {
     showLayoutChoice(layoutCache.layouts.length);
   }
 };
+
+
+// -----------------------------------------------------------------------------
+// Reading the drawing
+// -----------------------------------------------------------------------------
+
+// Pointing at the drawing (or tapping it) shows what it says: the nearest letter's word stays
+// dark while the rest fades, the letter itself turns the accent colour, and a label beside the
+// pointer shows that column's text with the word marked and the letter underlined.
+// `reading` holds every drawn character of the current drawing (made again on every render):
+// { x, y } (its middle, in the drawing's pixels), its column's characters and its place in
+// them, where its word starts and ends, and the elements of its lines.
+let reading = [];
+function readingMap(columns, lines, dx = 0, dy = 0){
+  const L = CONFIG.lineSize;
+  const elements = new Map();   // "column,char" -> its lines' elements
+  for (const line of lines) {
+    const key = line.column + ',' + line.char;
+    if (!elements.has(key)) elements.set(key, []);
+    elements.get(key).push(line.element);
+  }
+  reading = [];
+  columns.forEach((c, column) => {
+    c.chars.forEach((ch, i) => {
+      if (ch == ' ') return;
+      let start = i, end = i;
+      while (start > 0 && c.chars[start - 1] != ' ') start--;
+      while (end < c.chars.length - 1 && c.chars[end + 1] != ' ') end++;
+      reading.push({ x: c.x + dx, y: c.y + dy + c.positions[i] * L, chars: c.chars, column, index: i, start, end,
+                     elements: elements.get(column + ',' + i) ?? [] });
+    });
+  });
+}
+
+const readingLabel = document.createElement('div');
+readingLabel.className = 'reading-label';
+readingLabel.setAttribute('aria-hidden', 'true');   // (screen readers get the whole text instead)
+document.body.appendChild(readingLabel);
+let readingNow = null;   // the character being shown
+
+function hideReading(){
+  readingNow = null;
+  readingLabel.style.display = 'none';
+  if (svg) svg.classList.remove('reading');
+  preview.querySelectorAll('.reading-overlay').forEach(overlay => overlay.remove());
+  preview.querySelectorAll('.reading-word').forEach(e => e.classList.remove('reading-word'));
+}
+
+function showReading(event){
+  if (!svg || reading.length == 0) return hideReading();
+  // The pointer, in the drawing's own pixels (whatever the zoom)
+  const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  let nearest = null, distance = CONFIG.lineSize * 1.2;   // (not too far from any letter)
+  for (const item of reading) {
+    const d = Math.hypot(item.x - point.x, item.y - point.y);
+    if (d < distance) { nearest = item; distance = d; }
+  }
+  if (!nearest) return hideReading();
+
+  if (nearest != readingNow) {
+    hideReading();
+    readingNow = nearest;
+    svg.classList.add('reading');
+    for (const item of reading) {
+      if (item.column == nearest.column && item.index >= nearest.start && item.index <= nearest.end) {
+        item.elements.forEach(e => e.classList.add('reading-word'));
+      }
+    }
+    // The letter's lines drawn again on top, in the accent colour: where a letter's S lies on the
+    // next letter's N, that next letter's line is drawn over it, and would hide part of the letter
+    const overlay = el('g', { class: 'reading-overlay' }, svg);
+    for (const e of nearest.elements) {
+      const copy = e.cloneNode();
+      copy.setAttribute('class', 'reading-letter');
+      overlay.appendChild(copy);
+    }
+
+    // The label: the column's text, the word marked, the letter underlined
+    const text = nearest.chars.join('');
+    const word = document.createElement('mark');
+    const letter = document.createElement('u');
+    letter.textContent = text[nearest.index];
+    word.append(text.slice(nearest.start, nearest.index), letter, text.slice(nearest.index + 1, nearest.end + 1));
+    readingLabel.replaceChildren(text.slice(0, nearest.start).trimStart(), word, text.slice(nearest.end + 1).trimEnd());
+    readingLabel.style.display = 'block';
+  }
+  // Beside the column (words run downwards, so this keeps the whole word in view): to its right,
+  // or to its left if there's no room, level with the pointer, and kept on screen
+  const width = readingLabel.offsetWidth, height = readingLabel.offsetHeight;
+  const toScreen = x => new DOMPoint(x, readingNow.y).matrixTransform(svg.getScreenCTM()).x;
+  const reach = CONFIG.lineSize + CONFIG.stroke.width;   // (how far a column's strokes reach sideways)
+  const screenWidth = document.documentElement.clientWidth;
+  let left = toScreen(readingNow.x + reach) + 10;
+  if (left + width > screenWidth - 8) left = toScreen(readingNow.x - reach) - 10 - width;
+  readingLabel.style.left = Math.min(Math.max(8, left), screenWidth - width - 8) + 'px';
+  readingLabel.style.top = Math.min(Math.max(8, event.clientY - height / 2), document.documentElement.clientHeight - height - 8) + 'px';
+}
+
+preview.addEventListener('pointermove', showReading);
+preview.addEventListener('pointerdown', showReading);   // (a tap, on a touch screen)
+preview.addEventListener('pointerleave', event => { if (event.pointerType == 'mouse') hideReading(); });
+document.addEventListener('pointerdown', event => { if (!preview.contains(event.target)) hideReading(); });
+addEventListener('scroll', hideReading, { passive: true });
 
 
 // =============================================================================
@@ -798,12 +915,52 @@ function download(blob, name){
 }
 
 // The drawing as SVG text, at its real size (without the preview's zoom)
+// The text that's drawn, as typed (blank lines and spaces at the ends left out)
+function drawingText(){
+  return input.value.split('\n').map(line => line.trim()).filter(line => line).join('\n');
+}
+
+// The drawing as SVG text, at its real size (without the preview's zoom), with the text it
+// says as its title (shown by many viewers, and read by screen readers and search tools)
 function svgString(){
   const copy = svg.cloneNode(true);
   copy.removeAttribute('style');
   copy.removeAttribute('class');   // (the preview's checkerboard, for a transparent background)
-  copy.querySelectorAll('.guide').forEach(guide => guide.remove());   // the line guides are preview only
+  copy.querySelectorAll('.guide, .reading-overlay').forEach(part => part.remove());   // the line guides and the reading highlight are preview only
+  copy.querySelectorAll('[class]').forEach(part => part.removeAttribute('class'));   // (reading highlights)
+  if (drawingText()) {
+    const title = document.createElementNS(NS, 'title');
+    title.textContent = drawingText();
+    copy.insertBefore(title, copy.firstChild);   // (a title goes first)
+  }
   return new XMLSerializer().serializeToString(copy);
+}
+
+// A PNG file with `text` written into it as its description (an iTXt "Description" chunk, which
+// image tools can read; the picture itself is unchanged), right after its header chunk
+async function pngWithText(blob, text){
+  const png = new Uint8Array(await blob.arrayBuffer());
+  const bytes = s => new TextEncoder().encode(s);
+  // iTXt: keyword, 0, not compressed (0), method 0, no language, 0, no translated keyword, 0, the text (UTF-8)
+  const data = new Uint8Array([...bytes('Description'), 0, 0, 0, 0, 0, ...bytes(text)]);
+  const chunk = new Uint8Array(12 + data.length);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, data.length);
+  chunk.set(bytes('iTXt'), 4);
+  chunk.set(data, 8);
+  view.setUint32(8 + data.length, crc32(chunk.subarray(4, 8 + data.length)));
+  const afterHeader = 8 + 25;   // the 8-byte signature, then IHDR (13 bytes of data + 12)
+  return new Blob([png.subarray(0, afterHeader), chunk, png.subarray(afterHeader)], { type: 'image/png' });
+}
+
+// The CRC-32 a PNG chunk ends with
+function crc32(data){
+  let crc = ~0;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let k = 0; k < 8; k++) crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1));
+  }
+  return ~crc >>> 0;
 }
 
 byId('dlSvg').onclick = () =>
@@ -818,7 +975,7 @@ byId('dlPng').onclick = () => {
     c.height = svg.height.baseVal.value * scale;
     const ctx = c.getContext('2d');
     ctx.drawImage(img, 0, 0, c.width, c.height);
-    c.toBlob(b => download(b, 'image.png'), 'image/png');
+    c.toBlob(async b => download(drawingText() ? await pngWithText(b, drawingText()) : b, 'image.png'), 'image/png');
   };
   img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString());
 };
