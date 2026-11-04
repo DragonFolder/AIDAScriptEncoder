@@ -72,7 +72,7 @@ Digits stand apart from letters and punctuation. Within a number, each digit goe
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | ![1](images/digits/1.svg) | ![2](images/digits/2.svg) | ![3](images/digits/3.svg) | ![4](images/digits/4.svg) | ![5](images/digits/5.svg) | ![6](images/digits/6.svg) | ![7](images/digits/7.svg) | ![8](images/digits/8.svg) | ![9](images/digits/9.svg) | ![0](images/digits/0.svg) |
 
-Punctuation marks are small shapes that stand apart and never touch anything. Quote marks open with **Λ** and close with **V**, and `"` is two of them side by side. An apostrophe inside a word (don't) is always Λ, as is a `'` that's never closed (the dogs'). Curly quotes (‘ ’ “ ”) work too.
+Punctuation marks are small shapes that stand apart and never touch anything. Quote marks open with **Λ** and close with **V**, and `"` is two of them, one above the other. An apostrophe inside a word (don't) is always Λ, as is a `'` that's never closed (the dogs'). Curly quotes (‘ ’ “ ”) work too.
 
 | `.` | `,` | `'` (apostrophe, opening) | `'` (closing) | `"` (opening) | `"` (closing) | `?` | `!` |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|

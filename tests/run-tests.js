@@ -328,6 +328,14 @@ test('digits go half a step apart where their lines allow, and no line meets a 0
 });
 
 
+test('quote marks in a row get an extra half step, so they stay apart', () => {
+  // the carets of two quote marks in a row end up a full step apart, twice the gap inside a "
+  for (const [text, step] of [["''", 1], ['""', 2], [`"'`, 1.25]]) {
+    const [a, b] = layout.placeLine([...layout.drawableText(text)]);
+    check(b - a == step, `${text}: a step of ${b - a}, expected ${step}`);
+  }
+});
+
 test('digits, quote marks and every punctuation mark place and draw', () => {
   for (const text of ['2026', 'call 555 0100', '1234567890', 'a1b2c3', '22 88 28 82', '“Hi,” she said. ‘5’?!']) {
     for (const line of layout.drawableText(text).split('\n')) {

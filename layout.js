@@ -99,10 +99,11 @@ const NO_SHAPE = [[0, 0], [0, 0]];
 // A diamond of four diagonal lines, for the digit 0
 const DIAMOND = [[0, -0.5, 0.5, 0], [0.5, 0, 0, 0.5], [0, 0.5, -0.5, 0], [-0.5, 0, 0, -0.5]];
 
-// A small caret: Λ (apex up) or V (apex down), its middle at x, half 0.3 wide and 0.3 tall
-const caret = (x, up) => {
-  const tip = up ? -0.15 : 0.15, ends = -tip;
-  return [[x, tip, x - 0.3, ends], [x, tip, x + 0.3, ends]];
+// A caret: Λ (apex up) or V (apex down), its legs half a lineSize across and half a lineSize
+// down (or up), with its apex at height y
+const caret = (y, up) => {
+  const ends = up ? y + 0.5 : y - 0.5;
+  return [[0, y, -0.5, ends], [0, y, 0.5, ends]];
 };
 
 // Punctuation marks: small shapes that stand alone and never touch other lines.
@@ -114,14 +115,14 @@ const caret = (x, up) => {
 const PUNCTUATION = {
   '.': [[0, 0, 0, 0]],                                                            // a dot
   ',': [[0, 0, 0, -0.5], [0, 0, -0.5, 0.5]],                                      // a small N and SW
-  "'": caret(0, true),                                                            // Λ: an apostrophe (don't), or a ' left unclosed
-  '‘': caret(0, true),                                                            // Λ: an opening '
-  '’': caret(0, false),                                                           // V: a closing '
-  '"': [...caret(-0.5, true), ...caret(0.5, true)],                               // ΛΛ: a " left unclosed
-  '“': [...caret(-0.5, true), ...caret(0.5, true)],                               // ΛΛ: an opening "
-  '”': [...caret(-0.5, false), ...caret(0.5, false)],                             // VV: a closing "
+  "'": caret(-0.25, true),                                                        // Λ: an apostrophe (don't), or a ' left unclosed
+  '‘': caret(-0.25, true),                                                        // Λ: an opening '
+  '’': caret(0.25, false),                                                        // V: a closing '
+  '"': [...caret(-0.5, true), ...caret(0, true)],                                 // two Λ, one above the other: a " left unclosed
+  '“': [...caret(-0.5, true), ...caret(0, true)],                                 // two Λ, one above the other: an opening "
+  '”': [...caret(0, false), ...caret(0.5, false)],                                // two V, one above the other: a closing "
   '?': [[-0.5, -0.5, 0.5, -0.5], [0.5, -0.5, 0, 0], [0, 0, 0, 0.5]],              // hook: top bar, diagonal to the middle, down
-  '!': [[0, -0.5, 0, 0.5], [-0.5, -0.25, 0.5, -0.25], [-0.5, 0.25, 0.5, 0.25]],   // ‡
+  '!': [[0, 0, 0, -0.5], [0, 0, -0.5, -0.5], [0, 0, 0, 0.5]],                    // a small N, NW and S
   '0': DIAMOND,                                                                   // a diamond: ◇
   '5': [[0, -0.5, 0, 0.5], [-0.5, 0, 0.5, 0]],                                    // a +
   ...Object.fromEntries(Object.keys(DIGITS).map(digit => [digit, digitMark(digit)])),
@@ -213,8 +214,7 @@ function getCharShape(ch){
 // The middle point (0) is always part of a letter.
 // Punctuation uses the height of its lines, rounded out to the next quarter lineSize: every
 // position stays a whole number of quarter lineSizes, which the compact layout relies on (see
-// clashHeights). So . is a point (0), ' and " (reaching ±0.15) take ±0.25, and the rest
-// take ±0.5.
+// clashHeights). So . is a point (0), ' takes ±0.25, and the rest (" included) take ±0.5.
 function letterTop(ch){
   if (isPunctuation(ch)) return Math.floor(Math.min(...punctuationYs(ch)) * 4 + 1e-9) / 4;
   return Math.min(0, ...getCharShape(ch).map(dir => dir[1]));   // -1 if a stroke points up, else 0
@@ -357,6 +357,10 @@ function markY(chars, index, positions){
     }
   }
   y = Math.ceil(y * 4 - 1e-9) / 4;
+  // Two quote marks in a row get another half lineSize between them: stacked carets would
+  // otherwise run together ("' would read as three Λ)
+  const isQuote = ch => "'‘’\"“”".includes(ch ?? '_');
+  if (isQuote(chars[index]) && isQuote(chars[index - 1])) y += 0.5;
   // (lines that don't overlap from left to right can still come close on a slant: keep them apart)
   while (closeToEarlier(chars, index, positions, lines, y)) y += 0.25;
   return y;

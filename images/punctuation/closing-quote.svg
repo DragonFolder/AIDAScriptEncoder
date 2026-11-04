@@ -2,9 +2,9 @@
   <title>AIDAScript closing quote (”)</title>
   <rect x="0.5" y="0.5" width="63" height="63" rx="8" fill="#ffffff" stroke="#d0d7de"/>
   <g stroke="#000000" stroke-width="5" stroke-linecap="round">
-  <line x1="22" y1="35" x2="16" y2="29"/>
-  <line x1="22" y1="35" x2="28" y2="29"/>
-  <line x1="42" y1="35" x2="36" y2="29"/>
-  <line x1="42" y1="35" x2="48" y2="29"/>
+  <line x1="32" y1="32" x2="22" y2="22"/>
+  <line x1="32" y1="32" x2="42" y2="22"/>
+  <line x1="32" y1="42" x2="22" y2="32"/>
+  <line x1="32" y1="42" x2="42" y2="32"/>
   </g>
 </svg>
