@@ -11,7 +11,7 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 - Live preview, with zoom (25%–400%)
 - Download as SVG or PNG
 - Long lines wrap into new columns, keeping words whole
-- Advanced settings for size, spacing, colors and layout
+- Settings for size, spacing, colors and layout
 - An experimental **compact** layout that packs the text into a tight, round or square blob
 
 ## How AIDAScript works
@@ -46,7 +46,7 @@ Punctuation marks are small shapes that stand apart and never touch anything:
 |---|---|---|---|---|---|---|
 | Shape | `+` | `/` | `—` | `=` | hook | `‡` |
 
-## Advanced settings
+## Settings
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -57,8 +57,14 @@ Punctuation marks are small shapes that stand apart and never touch anything:
 | Shape | Rectangle | **Rectangle**: plain columns. **Compact** (experimental): packs the text as tightly as possible, with overlapping columns that never touch |
 | Guide shape | Circle | Compact only: aim for a round or a square result |
 | Extend free line ends | on | Compact only: lengthens strokes whose tips touch nothing (and either end of the N/S overlap marker), to fill empty space |
+| Frame | None | Compact only: a border around the result: the **guide shape** (circle or square), the **smallest rectangle**, or a **blob** (the tightest outline without dents, with rounded corners). Only the guide shape affects the layout |
+| Frame color | same as line color | Compact only: the frame's color; untick **Same as line color** to pick a different one |
+| Frame thickness | 5 px | Compact only: how thick the frame is drawn (the lines stay 5 px) |
 | Show line guides | off | Compact only: shows where each column runs (preview only) |
 | Line / background color | black / white | Colors of the drawing |
+| Column colors | One color | Compact only: give every column the line color, or alternate it with the **second line color**, so overlapping columns are easy to tell apart |
+
+In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview step through the best few different layouts for the same text.
 
 ## Project structure
 

@@ -25,7 +25,7 @@
 // 1. Settings
 // =============================================================================
 
-// Defaults. The "Advanced settings" panel overwrites them before every render (see readSettings).
+// Defaults. The "Settings" panel overwrites them before every render (see readSettings).
 const CONFIG = {
   lineSize: 20,          // length of one full stroke, in pixels
   lineSpacing: 10,       // extra gap between two columns of text, in pixels (rectangle only)
@@ -37,11 +37,18 @@ const CONFIG = {
   guideShape: 'circle',  // compact only: 'circle' or 'square', the outline that guides how tall each column may be
   showGuide: false,      // compact only: string each column's characters on a line in the preview (never downloaded)
   extendEnds: true,      // compact only: draw letter strokes whose tips touch nothing half a lineSize longer (see extendFreeEnds)
+  columnColours: 'single',  // compact only: 'single' (all in stroke.color) or 'alternate' (stroke.color and
+                            // secondColor in turn, column by column)
+  secondColor: '#1971c2',   // compact only: the other colour for 'alternate'
+  frame: 'none',         // compact only: 'none', 'guide', 'rectangle' or 'blob': a frame around the result (see frameAround)
+  frameColor: '#000000', // compact only: the frame's colour (stroke.color instead when frameSameColor)
+  frameSameColor: true,
+  frameWidth: 5,         // compact only: the frame's thickness, in pixels
 };
 
 const byId = id => document.getElementById(id);
 
-// Copy the values from the "Advanced settings" panel into CONFIG.
+// Copy the values from the "Settings" panel into CONFIG.
 // An empty or invalid number keeps the last valid value.
 function readSettings(){
   const number = (id, min, current) => {
@@ -60,16 +67,47 @@ function readSettings(){
   CONFIG.guideShape = byId('setGuideShape').value;
   CONFIG.showGuide = byId('setShowGuide').checked;
   CONFIG.extendEnds = byId('setExtendEnds').checked;
+  CONFIG.columnColours = byId('setColumnColours').value;
+  CONFIG.secondColor = byId('setSecondColor').value;
+  CONFIG.frame = byId('setFrame').value;
+  CONFIG.frameColor = byId('setFrameColor').value;
+  CONFIG.frameSameColor = byId('setFrameSameColor').checked;
+  CONFIG.frameWidth = number('setFrameWidth', 1, CONFIG.frameWidth);
 
-  // Grey out the settings the chosen shape doesn't use
+  // Only show the settings that matter for the current choices (each with its label)
+  const show = (id, visible) =>
+    byId(id).closest('[data-setting]').classList.toggle('d-none', !visible);
   const compact = CONFIG.shape == 'compact';
-  byId('setMaxHeight').disabled = compact;
-  byId('setLineSpacing').disabled = compact;   // compact columns overlap instead
-  byId('setGuideShape').disabled = !compact;
-  byId('setShowGuide').disabled = !compact;
-  byId('setExtendEnds').disabled = !compact;
+  const framed = compact && CONFIG.frame != 'none';
+  show('setMaxHeight', !compact);
+  show('setLineSpacing', !compact);   // compact columns overlap instead
+  show('setGuideShape', compact);
+  show('compactOptions', compact);    // extend free line ends, show line guides
+  show('setColumnColours', compact);
+  show('setSecondColor', compact && CONFIG.columnColours == 'alternate');
+  show('setFrame', compact);
+  show('frameColorPanel', framed);
+  show('setFrameWidth', framed);
+  byId('setFrameColor').classList.toggle('d-none', CONFIG.frameSameColor);
   byId('compactBadge').hidden = !compact;
+  byId('layoutPicker').hidden = !compact;
+
+  // The Frame tab only for the compact shape (leaving it if it was open)
+  byId('frameTab').classList.toggle('d-none', !compact);
+  if (!compact && settingsTab == 'frame') showSettingsTab('shape');
 }
+
+// The settings are split into tabs (Size, Shape, Colors, Frame), showing one group at a time
+let settingsTab = 'size';
+function showSettingsTab(name){
+  settingsTab = name;
+  document.querySelectorAll('[data-tab]').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab == name);
+    tab.setAttribute('aria-selected', tab.dataset.tab == name);
+  });
+  document.querySelectorAll('[data-pane]').forEach(pane => pane.classList.toggle('d-none', pane.dataset.pane != name));
+}
+document.querySelectorAll('[data-tab]').forEach(tab => tab.onclick = () => showSettingsTab(tab.dataset.tab));
 
 const NS = 'http://www.w3.org/2000/svg';
 const input = byId('input');
@@ -837,8 +875,10 @@ const STRAY_DISTANCE = 1;
 // it. Then, the shortest outline around everything drawn (its convex hull): that rewards packing
 // the text densely (stretched gaps, ragged edges and empty bands make the outline longer) and
 // keeping it round (for the same area, a long thin shape has a longer outline than a round one).
-// Returns the columns ([{ chars, positions, x, y }]), placed around the guide circle's middle.
-function compactLayout(textLines){
+// Returns { layouts, more }: `layouts` are the best few different layouts, best first (see
+// ALTERNATIVE_LAYOUTS), each the columns ([{ chars, positions, x, y }]) placed around the guide
+// circle's middle; `more()` looks for one more (adding it to `layouts`), and returns whether it found one.
+function compactLayouts(textLines){
   const L = CONFIG.lineSize;
   const halfStroke = CONFIG.stroke.width / 2;
 
@@ -887,6 +927,7 @@ function compactLayout(textLines){
   // (For short texts the circles are small, so always look at least a few lineSizes further.)
   let best = null;
   let sinceBest = 0;
+  const found = [];   // every layout looked at, for the alternatives
   const furthest = Math.max(high * (1 + RADIUS_SEARCH), high + RADIUS_SEARCH_MIN * L);
   for (let R = high; R <= furthest; R += R < high * (1 + RADIUS_SEARCH_FINE) ? L / 4 : L) {
     if (R >= high * (1 + RADIUS_SEARCH_FINE) && sinceBest >= GIVE_UP_AFTER) break;
@@ -894,15 +935,83 @@ function compactLayout(textLines){
     for (const layout of layoutsAt(R)) {
       const { perimeter, strays } = layoutShape(layout.columns);
       const awkward = strays + layout.stacked;
+      found.push({ columns: layout.columns, awkward, perimeter });
       const better = !best || awkward < best.awkward ||
                      (awkward == best.awkward && perimeter < best.perimeter - 1e-6);
       if (better) {
-        best = { columns: layout.columns, awkward, perimeter };
+        best = { columns: layout.columns, awkward, perimeter, R };
         sinceBest = 0;
       }
     }
   }
-  return best?.columns ?? [];   // (empty only if nothing ever fit)
+  if (!best) return { layouts: [[]], more: () => false };   // (only if nothing ever fit)
+
+  // The alternatives: as good as the best at avoiding awkward words, and not much less compact,
+  // without repeats (the same layout is often found at several radii)
+  const L4 = L / 4;
+  const sameness = columns => {
+    const filled = columns.filter(c => c.chars.some(ch => ch != ' '));
+    if (filled.length == 0) return '';
+    const left = Math.min(...filled.map(c => c.x)), top = Math.min(...filled.map(c => c.y + c.positions[0]*L));
+    return filled.map(c => Math.round((c.x - left) / L4) + ':' +
+                           c.positions.map(p => Math.round((c.y + p*L - top) / L4)).join(',')).join('|');
+  };
+  const seen = new Set();
+  const layouts = [];
+  const add = f => {
+    if (f.awkward != best.awkward || f.perimeter > best.perimeter * ALTERNATIVE_LAYOUTS.within) return false;
+    const key = sameness(f.columns);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    layouts.push(f.columns);
+    return true;
+  };
+  for (const f of found.sort((a, b) => a.perimeter - b.perimeter)) {
+    add(f);
+    if (layouts.length == ALTERNATIVE_LAYOUTS.first) break;
+  }
+
+  // More, on request: the best layout's circle and a few bigger ones, with the first column
+  // started further right in half-lineSize steps (the search above only tries a few starts)
+  const tries = [];
+  for (const bigger of [0, 0.25, 0.5, 1, 1.5, 2]) {
+    for (let k = 1; k <= 6; k++) tries.push([best.R + bigger * L, k]);
+  }
+  const more = () => {
+    while (tries.length) {
+      const [R, k] = tries.shift();
+      const r = R - halfStroke;
+      const layout = flowColumns(textLines, r, -(r - L) + k * L / 2);
+      if (!layout) continue;
+      const { perimeter, strays } = layoutShape(layout.columns);
+      if (add({ columns: layout.columns, awkward: strays + layout.stacked, perimeter })) return true;
+    }
+    return false;
+  };
+  return { layouts, more };
+}
+
+// "Try another layout": the search offers up to `first` layouts straight away (more are looked
+// for on request), all with an outline at most `within` times as long as the best one's
+const ALTERNATIVE_LAYOUTS = { first: 8, within: 1.25 };
+
+// The best compact layout (see compactLayouts)
+function compactLayout(textLines){
+  return compactLayouts(textLines).layouts[0];
+}
+
+// The layouts for the current text and settings, kept until either changes, so stepping
+// through them (or changing a colour) doesn't lay the text out again
+// (`exhausted`: `more` found nothing new last time)
+let layoutCache = { key: null, layouts: [], more: () => false, exhausted: true };
+let layoutChoice = 0;   // which of them is shown
+function cachedLayouts(textLines){
+  const key = JSON.stringify([textLines, CONFIG.lineSize, CONFIG.stroke.width, CONFIG.guideShape]);
+  if (key != layoutCache.key) {
+    layoutCache = { key, ...compactLayouts(textLines), exhausted: false };
+    layoutChoice = 0;
+  }
+  return layoutCache.layouts;
 }
 
 // The shape of a layout: the length of the tightest outline around everything drawn (its
@@ -1036,8 +1145,8 @@ function el(tag, attrs = {}, parent){
 }
 
 // One stroke, in pixels
-function drawLine(x1, y1, x2, y2){
-  el('line', { x1, y1, x2, y2, stroke: CONFIG.stroke.color, 'stroke-width': CONFIG.stroke.width, 'stroke-linecap': 'round' }, svg);
+function drawLine(x1, y1, x2, y2, colour = CONFIG.stroke.color){
+  el('line', { x1, y1, x2, y2, stroke: colour, 'stroke-width': CONFIG.stroke.width, 'stroke-linecap': 'round' }, svg);
 }
 
 // Every line of a character, as [x1, y1, x2, y2] in lineSizes relative to its middle.
@@ -1144,8 +1253,122 @@ function linesBox(lines){
 }
 
 // Draw lines (see columnLines), moved by dx, dy
+// (in each line's own `colour`, if it has one)
 function drawLines(lines, dx = 0, dy = 0){
-  for (const l of lines) drawLine(l.x1 + dx, l.y1 + dy, l.x2 + dx, l.y2 + dy);
+  for (const l of lines) drawLine(l.x1 + dx, l.y1 + dy, l.x2 + dx, l.y2 + dy, l.colour);
+}
+
+// The colour of the n-th column (counting only columns with something in them), see CONFIG.columnColours
+function columnColour(n){
+  return CONFIG.columnColours == 'alternate' && n % 2 == 1 ? CONFIG.secondColor : CONFIG.stroke.color;
+}
+
+// The smallest circle around a set of points ([x, y]): { x, y, r } (Welzl's algorithm, with the
+// points in a shuffled order, which makes it fast)
+function enclosingCircle(points){
+  const ps = points.slice();
+  let seed = 1;
+  for (let i = ps.length - 1; i > 0; i--) {   // a fixed shuffle, so the result never jitters
+    seed = (seed * 16807) % 2147483647;
+    const j = seed % (i + 1);
+    [ps[i], ps[j]] = [ps[j], ps[i]];
+  }
+  const inside = (c, [x, y]) => Math.hypot(x - c.x, y - c.y) <= c.r + 1e-7;
+  const two = ([ax, ay], [bx, by]) => ({ x: (ax + bx) / 2, y: (ay + by) / 2, r: Math.hypot(ax - bx, ay - by) / 2 });
+  const three = (a, b, c) => {
+    const [ax, ay] = a, [bx, by] = b, [cx, cy] = c;
+    const d = 2 * (ax*(by - cy) + bx*(cy - ay) + cx*(ay - by));
+    if (Math.abs(d) < 1e-12) {   // in a line: the circle through the two furthest apart
+      return [two(a, b), two(a, c), two(b, c)].reduce((m, k) => k.r > m.r ? k : m);
+    }
+    const a2 = ax*ax + ay*ay, b2 = bx*bx + by*by, c2 = cx*cx + cy*cy;
+    const x = (a2*(by - cy) + b2*(cy - ay) + c2*(ay - by)) / d;
+    const y = (a2*(cx - bx) + b2*(ax - cx) + c2*(bx - ax)) / d;
+    return { x, y, r: Math.hypot(ax - x, ay - y) };
+  };
+  let c = { x: ps[0][0], y: ps[0][1], r: 0 };
+  for (let i = 1; i < ps.length; i++) {
+    if (inside(c, ps[i])) continue;
+    c = { x: ps[i][0], y: ps[i][1], r: 0 };
+    for (let j = 0; j < i; j++) {
+      if (inside(c, ps[j])) continue;
+      c = two(ps[i], ps[j]);
+      for (let k = 0; k < j; k++) if (!inside(c, ps[k])) c = three(ps[i], ps[j], ps[k]);
+    }
+  }
+  return c;
+}
+
+// The frame around a compact drawing (see CONFIG.frame), drawn half a lineSize clear of the lines:
+//   'guide': the guide shape (the smallest circle around the drawing, or a square);
+//   'rectangle': the smallest rectangle around the drawing;
+//   'blob': the tightest outline without dents (around the convex hull), with rounded corners.
+// The rectangle and the blob only frame the result: they don't guide the layout.
+// Returns { left, right, top, bottom, draw(dx, dy, attrs) }: what the frame covers (its stroke
+// included), and a function that draws it moved by dx, dy.
+function frameAround(lines, box){
+  const stroke = CONFIG.frameWidth;   // the frame's own thickness
+  // From a line's end point to the middle of the frame's stroke (past the line's round end,
+  // the gap and half the frame), and to the frame's outer edge
+  const away = CONFIG.stroke.width / 2 + CONFIG.lineSize / 2 + stroke / 2;
+  const reach = away + stroke / 2;
+  const square = (x, y, halfW, halfH) => ({
+    left: x - halfW - stroke/2, right: x + halfW + stroke/2, top: y - halfH - stroke/2, bottom: y + halfH + stroke/2,
+    draw: (dx, dy, attrs) => el('rect', { x: x - halfW + dx, y: y - halfH + dy, width: 2*halfW, height: 2*halfH, ...attrs }, svg),
+  });
+  const midX = (box.left + box.right) / 2, midY = (box.top + box.bottom) / 2;
+  const halfW = (box.right - box.left) / 2 + away, halfH = (box.bottom - box.top) / 2 + away;
+
+  if (CONFIG.frame == 'rectangle') return square(midX, midY, halfW, halfH);
+  if (CONFIG.frame == 'guide' && CONFIG.guideShape == 'square') {
+    const half = Math.max(halfW, halfH);
+    return square(midX, midY, half, half);
+  }
+  const points = lines.flatMap(l => [[l.x1, l.y1], [l.x2, l.y2]]);
+  if (CONFIG.frame == 'guide') {
+    const c = enclosingCircle(points);
+    const r = c.r + away;
+    return {
+      left: c.x - r - stroke/2, right: c.x + r + stroke/2, top: c.y - r - stroke/2, bottom: c.y + r + stroke/2,
+      draw: (dx, dy, attrs) => el('circle', { cx: c.x + dx, cy: c.y + dy, r, ...attrs }, svg),
+    };
+  }
+
+  // The blob: the convex hull pushed out by `away`, its corners rounded (arcs around each corner)
+  points.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let hull = convexHull(points).filter((p, i, h) => {
+    const q = h[(i + 1) % h.length];
+    return h.length == 1 || Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-9;
+  });
+  const extent = { left: box.left - reach, right: box.right + reach, top: box.top - reach, bottom: box.bottom + reach };
+  if (hull.length == 1) {   // a single point: a circle
+    const [x, y] = hull[0];
+    return { ...extent, draw: (dx, dy, attrs) => el('circle', { cx: x + dx, cy: y + dy, r: away, ...attrs }, svg) };
+  }
+  // Go round clockwise on screen, so each edge's outside is to its left: (dy, -dx)
+  let area = 0;
+  hull.forEach(([x1, y1], i) => { const [x2, y2] = hull[(i + 1) % hull.length]; area += x1*y2 - x2*y1; });
+  if (area < 0) hull = hull.reverse();
+  const outward = hull.map(([x1, y1], i) => {
+    const [x2, y2] = hull[(i + 1) % hull.length], length = Math.hypot(x2 - x1, y2 - y1);
+    return [(y2 - y1) / length * away, -(x2 - x1) / length * away];
+  });
+  const f = v => v.toFixed(2);
+  return {
+    ...extent,
+    draw: (dx, dy, attrs) => {
+      const n = hull.length;
+      const at = (i, normal) => [hull[i][0] + normal[0] + dx, hull[i][1] + normal[1] + dy];
+      const [sx, sy] = at(0, outward[n - 1]);
+      let d = `M${f(sx)} ${f(sy)}`;
+      for (let i = 0; i < n; i++) {
+        const [ax, ay] = at(i, outward[i]);                  // around corner i...
+        const [bx, by] = at((i + 1) % n, outward[i]);        // ...then along edge i
+        d += ` A${f(away)} ${f(away)} 0 0 1 ${f(ax)} ${f(ay)} L${f(bx)} ${f(by)}`;
+      }
+      el('path', { d: d + ' Z', ...attrs }, svg);
+    },
+  };
 }
 
 // When the previous letter's S and this letter's N lie on top of each other, add an extra
@@ -1245,27 +1468,68 @@ function drawLineGuide(chars, positions, x, y){
 // The text laid out compactly (see compactLayout), with the padding around the text.
 // Returns the image size.
 function renderCompact(textLines){
-  const columns = compactLayout(textLines);
-  const lines = columns.flatMap(c => columnLines(c.chars, c.positions, c.x, c.y));
+  const layouts = cachedLayouts(textLines);
+  layoutChoice = Math.min(layoutChoice, layouts.length - 1);
+  showLayoutChoice(layouts.length);
+  const columns = layouts[layoutChoice];
+
+  // Each column's lines, in its colour
+  const lines = [];
+  let filled = 0;
+  for (const c of columns) {
+    const own = columnLines(c.chars, c.positions, c.x, c.y);
+    if (own.length == 0) continue;
+    const colour = columnColour(filled++);
+    for (const line of own) line.colour = colour;
+    lines.push(...own);
+  }
   const { padding } = CONFIG;
   if (lines.length == 0) return [padding.left + padding.right, padding.top + padding.bottom];
 
   const box = linesBox(lines);
   extendFreeEnds(lines);   // (stays inside the box)
 
-  // Move the drawing to just inside the padding (the lines' round ends reach half a stroke past the box)
+  // What's drawn reaches half a stroke past the lines' end points (their round ends), or the frame's
   const stroke = CONFIG.stroke.width;
-  const dx = padding.left + stroke/2 - box.left, dy = padding.top + stroke/2 - box.top;
+  let extent = { left: box.left - stroke/2, right: box.right + stroke/2, top: box.top - stroke/2, bottom: box.bottom + stroke/2 };
+  const frame = CONFIG.frame != 'none' ? frameAround(lines, box) : null;
+  if (frame) extent = frame;
+
+  // Move the drawing to just inside the padding
+  const dx = padding.left - extent.left, dy = padding.top - extent.top;
   drawLines(lines, dx, dy);
+  if (frame) {
+    const colour = CONFIG.frameSameColor ? CONFIG.stroke.color : CONFIG.frameColor;
+    const look = { fill: 'none', stroke: colour, 'stroke-width': CONFIG.frameWidth, 'stroke-linejoin': 'round' };
+    frame.draw(dx, dy, look);
+  }
 
   // Preview only: string each column's characters on a line, so each line of text can be
   // followed through the overlapping columns (removed from downloads, see svgString)
   if (CONFIG.showGuide) {
     for (const c of columns) drawLineGuide(c.chars, c.positions, dx + c.x, dy + c.y);
   }
-  return [Math.ceil(box.right - box.left + stroke + padding.left + padding.right),
-          Math.ceil(box.bottom - box.top + stroke + padding.top + padding.bottom)];
+  return [Math.ceil(extent.right - extent.left + padding.left + padding.right),
+          Math.ceil(extent.bottom - extent.top + padding.top + padding.bottom)];
 }
+
+// "Try another layout": show which of the `count` layouts found so far is drawn, and step
+// through them. Past the last one, look for another (until none is left to find).
+function showLayoutChoice(count){
+  byId('layoutLabel').textContent = `Layout ${layoutChoice + 1} / ${count}`;
+  byId('layoutPrev').disabled = layoutChoice == 0;
+  byId('layoutNext').disabled = layoutChoice >= count - 1 && layoutCache.exhausted;
+}
+byId('layoutPrev').onclick = () => { layoutChoice--; render(); };
+byId('layoutNext').onclick = () => {
+  if (layoutChoice >= layoutCache.layouts.length - 1 && !layoutCache.more()) {
+    layoutCache.exhausted = true;
+    showLayoutChoice(layoutCache.layouts.length);
+    return;
+  }
+  layoutChoice++;
+  render();
+};
 
 
 // =============================================================================

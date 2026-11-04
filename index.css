@@ -40,10 +40,17 @@
 summary { cursor: pointer; }
 summary:hover { color: var(--accent) !important; }
 
+/* The settings tabs, in the accent colour */
+.settings-tabs { --bs-nav-link-padding-y: .25rem; --bs-nav-link-padding-x: .75rem; font-size: .875rem; }
+.settings-tabs .nav-link { color: var(--bs-secondary-color); }
+.settings-tabs .nav-link:hover { color: var(--accent); }
+.settings-tabs .nav-link.active { color: #000; background-color: var(--accent); }
+
 #input { font-family: var(--bs-font-monospace); resize: vertical; }
 #preview { min-height: 160px; }
 #preview svg { display: block; }
 #zoomReset { min-width: 4rem; }   /* room for "400%" without the buttons shifting */
+.layout-label { min-width: 6.5rem; opacity: 1 !important; }   /* room for "Layout 8 / 8"; a label, so not greyed out */
 
 /* Large screens: text and settings on the left, the preview on the right. The page gets wider to
    fit both, and the preview stays in view while scrolling (a big drawing scrolls inside it). */
