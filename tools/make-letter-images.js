@@ -1,6 +1,7 @@
-// Draws every letter and punctuation mark of AIDAScript as a small SVG image for the README,
-// using the same shapes as the page (the LETTERS and PUNCTUATION tables in layout.js):
+// Draws every letter, digit and punctuation mark of AIDAScript as a small SVG image for the README,
+// using the same shapes as the page (the LETTERS, DIGITS and PUNCTUATION tables in layout.js):
 //   images/letters/<letter>.svg
+//   images/digits/<digit>.svg
 //   images/punctuation/<name>.svg   (see PUNCTUATION_NAMES: "?" can't be part of a file name)
 //
 // Run it from the project folder after changing a shape:
@@ -11,8 +12,9 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'layout.js'), 'utf8');
-const { LETTERS, PUNCTUATION, characterSegments } =
-  new Function(source + '\nreturn { LETTERS, PUNCTUATION, characterSegments };')();
+const { LETTERS, PUNCTUATION, TICKED, characterSegments } =
+  new Function(source + '\nreturn { LETTERS, PUNCTUATION, TICKED, characterSegments };')();
+const DIGITS = '1234567890';   // (all drawn from the PUNCTUATION table)
 
 const SIZE = 64;     // the image, in pixels (square)
 const STROKE = 20;   // one full stroke (from the middle out), in pixels: the same for every image,
@@ -21,8 +23,11 @@ const WIDTH = 5;     // the line width, as on the page
 const middle = SIZE / 2;
 
 const PUNCTUATION_NAMES = {
-  '.': 'period', ',': 'comma', "'": 'apostrophe', '"': 'quote', '?': 'question', '!': 'exclamation',
+  '.': 'period', ',': 'comma', "'": 'apostrophe', '’': 'closing-single-quote',
+  '“': 'opening-quote', '”': 'closing-quote', '?': 'question', '!': 'exclamation',
 };
+// Drawn the same as another mark: no picture of their own
+const SAME_AS = { '‘': "'", '"': '“' };   // (and the digits, which are drawn into images/digits)
 
 // One character as an SVG: a white tile (so it shows in both light and dark themes), then its lines
 function drawing(ch, title){
@@ -47,10 +52,16 @@ function save(folder, name, svg){
 }
 
 for (const ch of Object.keys(LETTERS)) save('letters', ch, drawing(ch, `AIDAScript letter ${ch}`));
+for (const ch of DIGITS) save('digits', ch, drawing(ch, `AIDAScript digit ${ch}`));
+let marks = 0;
 for (const ch of Object.keys(PUNCTUATION)) {
+  // (digits go into images/digits; the stand-ins for digits with a middle line aren't marks of their own)
+  if (SAME_AS[ch] || DIGITS.includes(ch) || Object.hasOwn(TICKED, ch)) continue;
   const name = PUNCTUATION_NAMES[ch];
   if (!name) throw new Error(`No file name for the punctuation mark ${ch}: add it to PUNCTUATION_NAMES`);
-  save('punctuation', name, drawing(ch, `AIDAScript ${name} (${ch})`));
+  save('punctuation', name, drawing(ch, `AIDAScript ${name.replaceAll('-', ' ')} (${ch})`));
+  marks++;
 }
-console.log(`Drew ${Object.keys(LETTERS).length} letters into images/letters and ` +
-            `${Object.keys(PUNCTUATION).length} punctuation marks into images/punctuation`);
+// (a picture whose mark is gone, e.g. the old quote.svg, is left for you to delete)
+console.log(`Drew ${Object.keys(LETTERS).length} letters into images/letters, ${DIGITS.length} digits into ` +
+            `images/digits and ${marks} punctuation marks into images/punctuation`);

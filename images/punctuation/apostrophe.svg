@@ -2,6 +2,7 @@
   <title>AIDAScript apostrophe (')</title>
   <rect x="0.5" y="0.5" width="63" height="63" rx="8" fill="#ffffff" stroke="#d0d7de"/>
   <g stroke="#000000" stroke-width="5" stroke-linecap="round">
-  <line x1="22" y1="32" x2="42" y2="32"/>
+  <line x1="32" y1="29" x2="26" y2="35"/>
+  <line x1="32" y1="29" x2="38" y2="35"/>
   </g>
 </svg>

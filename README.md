@@ -15,7 +15,7 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 - Your settings are remembered in your browser for next time (**Reset to defaults** clears them)
 - Long lines wrap into new columns, keeping words whole
 - Settings for size, spacing, colors and layout
-- **How to read AIDAScript**, at the bottom of the page: every letter and punctuation mark (click a letter to type it)
+- **How to read AIDAScript**, at the bottom of the page: every letter, digit and punctuation mark (click a letter or digit to type it)
 - An experimental **compact** layout that packs the text into a tight blob, guided by a shape of your choice
 
 ## How AIDAScript works
@@ -48,15 +48,35 @@ SW  S  SE
 |:---:|:---:|:---:|:---:|:---:|
 | ![v](images/letters/v.svg) | ![w](images/letters/w.svg) | ![x](images/letters/x.svg) | ![y](images/letters/y.svg) | ![z](images/letters/z.svg) |
 
-*(Drawn from the `LETTERS` table by `tools/make-letter-images.js`.)*
+*(Drawn from the `LETTERS` table by `tools/make-letter-images.js`, like the digits and punctuation below.)*
 
 Letters are stacked so their strokes connect without crossing in the wrong places. Words are separated by a gap.
 
-Punctuation marks are small shapes that stand apart and never touch anything:
+Digits are **one stroke**, pointing from the middle to where the digit sits on a phone keypad. **2** and **8**, which lie on the middle line, get a bar across their middle end (2 is ⊥, 8 is T); **5**, the middle key, is a **+**, and **0**, below the keypad, is a diamond. Most digits are told apart by which side of the middle line they're on (4 is left of it, 6 right of it), so a number made only of 1, 4 and 7, or only of 3, 6 and 9, gets a short line along the middle to show where it is.
 
-| `.` | `,` | `'` | `"` | `?` | `!` |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| ![period](images/punctuation/period.svg) | ![comma](images/punctuation/comma.svg) | ![apostrophe](images/punctuation/apostrophe.svg) | ![quote](images/punctuation/quote.svg) | ![question](images/punctuation/question.svg) | ![exclamation](images/punctuation/exclamation.svg) |
+Digits stand apart from letters and punctuation. Within a number, each digit goes half a step below the one before it, and further down, half a step at a time, while:
+- two lines would meet other than in an X at both their middles, with one line's tip on the other's middle, or tip to tip at least a full step apart (and not in a straight line);
+- in a number with a middle line, two lines would cross less than a full step apart (that closes a tiny triangle against the middle line, as in 41);
+- a line would touch the 0's diamond anywhere but a corner.
+
+```
+1  2  3        1 = NW   2 = N   3 = NE
+ \ | /         4 = W    5 = +   6 = E
+4 —+— 6        7 = SW   8 = S   9 = SE
+ / | \         0 = ◇
+7  8  9
+   0
+```
+
+| **1** | **2** | **3** | **4** | **5** | **6** | **7** | **8** | **9** | **0** |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![1](images/digits/1.svg) | ![2](images/digits/2.svg) | ![3](images/digits/3.svg) | ![4](images/digits/4.svg) | ![5](images/digits/5.svg) | ![6](images/digits/6.svg) | ![7](images/digits/7.svg) | ![8](images/digits/8.svg) | ![9](images/digits/9.svg) | ![0](images/digits/0.svg) |
+
+Punctuation marks are small shapes that stand apart and never touch anything. Quote marks open with **Λ** and close with **V**, and `"` is two of them side by side. An apostrophe inside a word (don't) is always Λ, as is a `'` that's never closed (the dogs'). Curly quotes (‘ ’ “ ”) work too.
+
+| `.` | `,` | `'` (apostrophe, opening) | `'` (closing) | `"` (opening) | `"` (closing) | `?` | `!` |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![period](images/punctuation/period.svg) | ![comma](images/punctuation/comma.svg) | ![apostrophe](images/punctuation/apostrophe.svg) | ![closing single quote](images/punctuation/closing-single-quote.svg) | ![opening quote](images/punctuation/opening-quote.svg) | ![closing quote](images/punctuation/closing-quote.svg) | ![question](images/punctuation/question.svg) | ![exclamation](images/punctuation/exclamation.svg) |
 
 ## Settings
 
@@ -95,10 +115,10 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 | `colors.js` | The Random colors generator |
 | `index.js` | The page: settings, drawing, preview, downloads, sharing, the alphabet |
 | `tests/` | The tests (see [Testing](#testing)) |
-| `images/` | The logo, the tab icon (`favicon.svg`), the picture shown when a link is shared (`social-preview.png`), and the letter and punctuation pictures in this README |
+| `images/` | The logo, the tab icon (`favicon.svg`), the picture shown when a link is shared (`social-preview.png`), and the letter, digit and punctuation pictures in this README |
 | `tools/make-letter-images.js` | Redraws those pictures (`node tools/make-letter-images.js`) |
 
-To change how a letter looks, edit the `LETTERS` table in `layout.js`; for punctuation, the `PUNCTUATION` table. Then run `node tools/make-letter-images.js` to redraw the pictures above.
+To change how a letter looks, edit the `LETTERS` table in `layout.js`; for digits, the `DIGITS` table; for punctuation (and the digits 0 and 5), the `PUNCTUATION` table. Then run `node tools/make-letter-images.js` to redraw the pictures above.
 
 ## Testing
 
@@ -111,7 +131,7 @@ Two sets of checks, worth running before merging into `main`:
 
 ## Known limitations
 
-- Digits and other symbols (`0`–`9`, `-`, `:`, …) are drawn as a small dot.
+- Symbols other than the punctuation above (`-`, `:`, `#`, emoji, …) have no shape yet, and are drawn as a space, so `12:30` reads as 12 30. Accented letters are drawn without their accents (é as e).
 - In the rectangle shape, a single word taller than the maximum height runs past it.
 - The stroke width is fixed at 5 px.
 - The compact shape takes a moment with long text (about a second for 600 characters). The page stays usable meanwhile, showing "Arranging…". Opened straight from a file, some browsers don't allow the background worker, and the page then pauses instead.

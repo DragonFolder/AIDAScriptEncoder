@@ -23,7 +23,7 @@ const root = path.join(__dirname, '..');
 const load = (file, names) =>
   new Function(fs.readFileSync(path.join(root, file), 'utf8') + `\nreturn { ${names.join(', ')} };`)();
 const layout = load('layout.js', ['CONFIG', 'GUIDE_SHAPES', 'guideShape', 'compactLayouts', 'placeLine', 'wrapLine',
-  'glyph', 'segmentDistance', 'meetsAtMiddle', 'columnClearance']);
+  'glyph', 'segmentDistance', 'meetsAtMiddle', 'columnClearance', 'drawableText', 'characterSegments', 'crossesDiamond', 'readableChar']);
 const colors = load('colors.js', ['randomColors', 'contrast']);
 const { CONFIG } = layout;
 
@@ -79,6 +79,7 @@ const TEXTS = {
   'blank line': 'first line\n\nthird line',
   'long word': 'a supercalifragilisticexpialidocious day',
   'symbols': 'abc 123 x-y: ok',
+  'numbers': `call 555 0100, room 22 or 88. "it's 2026," she said '1234567890'`,
   'long': 'lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua '.repeat(2),
 };
 
@@ -182,7 +183,8 @@ for (const [guideName, guide] of Object.entries(GUIDES)) {
   test(`${guideName}: every sample text keeps its words, no lines touch, layouts as expected`, () => {
     const changed = [];
     let slowest = 0;
-    for (const [textName, text] of Object.entries(TEXTS)) {
+    for (const [textName, typed] of Object.entries(TEXTS)) {
+      const text = layout.drawableText(typed);   // (as the page draws it)
       settings(guide);
       const started = Date.now();
       const { layouts } = layout.compactLayouts(text.split('\n'));
@@ -209,7 +211,8 @@ for (const [guideName, guide] of Object.entries(GUIDES)) {
 console.log('\nRectangle layout');
 test('every sample text wraps and places the same as expected', () => {
   const changed = [];
-  for (const [textName, text] of Object.entries(TEXTS)) {
+  for (const [textName, typed] of Object.entries(TEXTS)) {
+    const text = layout.drawableText(typed);   // (as the page draws it)
     settings();
     const placed = text.split('\n').map(line => layout.wrapLine(line).map(chars => [chars.join(''), layout.placeLine(chars)]));
     const key = `rectangle | ${textName}`;
@@ -243,7 +246,104 @@ test(`every guide shape, stretch, rotation and fit finishes quickly${FULL ? ' (a
   return `${cases} cases, slowest ${slowest.ms} ms (${slowest.what})`;
 });
 
+test('characters with no shape are drawn as spaces, accents are taken off', () => {
+  const cases = [
+    ['Hello, world!', 'Hello, world!'],
+    ['room 101', 'room 101'],
+    ['a#b@c', 'a b c'],
+    ['12:30', '12 30'],                          // (the two numbers stay apart)
+    ['2026-11-04', '2026 11 04'],
+    ['Café crème', 'Cafe creme'],
+    ['line 2\n8\tthree', 'line 2\n8 three'],
+  ];
+  for (const [text, expected] of cases) {
+    const got = [...layout.drawableText(text)].map(layout.readableChar).join('');   // (stand-ins back to digits)
+    check(got == expected, `${JSON.stringify(text)} gave ${JSON.stringify(got)}, expected ${JSON.stringify(expected)}`);
+  }
+});
+
+test('a number on one side of the middle line gets a middle line', () => {
+  const ticked = text => [...layout.drawableText(text)].map(ch => layout.readableChar(ch) != ch ? '|' : ch).join('');
+  const cases = [['4', '|'], ['6', '|'], ['71', '||'], ['369', '|||'], ['64', '64'], ['2026', '2026'],
+                 ['14 2', '|| 2'], ['a4b', 'a|b'], ['1470', '1470']];
+  for (const [text, expected] of cases) {
+    check(ticked(text) == expected, `${JSON.stringify(text)} gave ${JSON.stringify(ticked(text))}, expected ${JSON.stringify(expected)}`);
+  }
+});
+
+test('quote marks open and close; apostrophes stay apostrophes', () => {
+  const cases = [
+    ["don't", "don't"],
+    ['don’t', "don't"],                          // (a phone's curly apostrophe)
+    ["'hi'", '‘hi’'],
+    ['"say \'no\'"', '“say ‘no’”'],
+    ["the dogs'", "the dogs'"],                  // nothing open: an apostrophe
+    ['“hi” ‘there’', '“hi” ‘there’'],
+    ['"a\n"b"', '“a\n“b”'],                      // each line starts with nothing open
+    ["it's 5 o'clock", "it's 5 o'clock"],
+  ];
+  for (const [text, expected] of cases) {
+    const got = layout.drawableText(text);
+    check(got == expected, `${JSON.stringify(text)} gave ${JSON.stringify(got)}, expected ${JSON.stringify(expected)}`);
+  }
+});
+
+test('digits go half a step apart where their lines allow, and no line meets a 0 except at a corner', () => {
+  const digits = '1234567890';
+  const strokes = (ch, y) => layout.characterSegments(ch, undefined).map(([x1, y1, x2, y2]) => [x1, y + y1, x2, y + y2]);
+  const diamond = layout.crossesDiamond;
+  // the rule itself, on its own
+  check(diamond([-1, 0, 1, 0], 0, 0), 'a line through the middle should count');
+  check(diamond([0, -0.5, 0.5, 0], 0, 0), 'a line along an edge should count');
+  check(diamond([0.25, -0.25, 1, -1], 0, 0), 'a line ending on an edge should count');
+  check(!diamond([0, -0.5, 0, -1], 0, 0), 'a line ending on a corner should not count');
+  check(!diamond([-0.5, -0.5, 0.5, -0.5], 0, 0), 'a line just touching a corner should not count');
+  for (const a of digits) for (const b of digits) {
+    const [ya, yb] = layout.placeLine([a, b]);
+    const step = yb - ya;
+    check(step >= 0.5 && step * 2 == Math.round(step * 2), `${a}${b}: a step of ${step}`);
+    if (a == '0') check(!strokes(b, yb).some(l => diamond(l, 0, ya)), `${a}${b}: the ${b} goes into the 0`);
+    if (b == '0') check(!strokes(a, ya).some(l => diamond(l, 0, yb)), `${a}${b}: the ${a} goes into the 0`);
+    // any two lines that meet do so in an X at both middles, or with a tip on a middle (a T)
+    if (a != '0' && b != '0') {
+      const middle = ([x1, y1, x2, y2]) => [(x1 + x2) / 2, (y1 + y2) / 2];
+      for (const p of strokes(a, ya)) for (const q of strokes(b, yb)) {
+        if (layout.segmentDistance(p, q) > 1e-9) continue;
+        const [m, n] = [middle(p), middle(q)];
+        const x = Math.abs(m[0] - n[0]) < 1e-9 && Math.abs(m[1] - n[1]) < 1e-9;
+        check(x || layout.meetsAtMiddle(p, q, [0, ya], [0, yb]), `${a}${b}: two lines meet away from their middles`);
+      }
+    }
+  }
+  // the second gap of some three-digit numbers, as chosen by eye
+  for (const [text, gap] of [['741', 1], ['431', 0.5], ['916', 0.5], ['701', 1], ['953', 1], ['781', 1.5], ['771', 2], ['711', 1]]) {
+    const p = layout.placeLine([...layout.drawableText(text)]);
+    check(p[2] - p[1] == gap, `${text}: a second gap of ${p[2] - p[1]}, expected ${gap}`);
+  }
+  for (const [text, step] of [['71', 1], ['93', 1], ['14', 0.5], ['41', 1], ['82', 2.5], ['52', 2]]) {
+    const [ya, yb] = layout.placeLine([...layout.drawableText(text)]);
+    check(yb - ya == step, `${text}: a step of ${yb - ya}, expected ${step}`);
+  }
+  return `${digits.length ** 2} pairs`;
+});
+
+
+test('digits, quote marks and every punctuation mark place and draw', () => {
+  for (const text of ['2026', 'call 555 0100', '1234567890', 'a1b2c3', '22 88 28 82', '“Hi,” she said. ‘5’?!']) {
+    for (const line of layout.drawableText(text).split('\n')) {
+      for (const chars of layout.wrapLine(line)) {
+        const positions = layout.placeLine(chars);
+        check(positions.every(Number.isFinite), `${JSON.stringify(text)}: a position isn't a number`);
+        for (let i = 1; i < positions.length; i++) {
+          check(positions[i] >= positions[i - 1], `${JSON.stringify(text)}: character ${i} goes back up`);
+        }
+      }
+    }
+  }
+});
+
 console.log('\nRandom colors');
+
 test('every palette is valid and readable', () => {
   let worst = Infinity;
   for (let i = 0; i < 5000; i++) {

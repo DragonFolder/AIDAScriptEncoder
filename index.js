@@ -614,7 +614,7 @@ function scheduleRender(){
 function render(){
   const started = performance.now();
   readSettings();
-  const textLines = input.value.split('\n');
+  const textLines = drawableText(input.value).split('\n');   // (characters with no shape drawn as spaces)
   if (CONFIG.shape == 'compact' && !layoutsReady(textLines)) return;   // (the old drawing stays meanwhile)
   if (CONFIG.shape != 'compact' && pending) {   // (a compact layout that's no longer wanted)
     layoutWorker.terminate();
@@ -854,7 +854,7 @@ function showReading(event){
     }
 
     // The label: the column's text, the word marked, the letter in a block of its own
-    const text = nearest.chars.join('');
+    const text = nearest.chars.map(readableChar).join('');   // (see TICKED in layout.js)
     const word = document.createElement('mark');
     const letter = document.createElement('b');
     letter.textContent = text[nearest.index];
@@ -1139,10 +1139,10 @@ function restore(){
 // 10. Alphabet
 // =============================================================================
 
-// "How to read AIDAScript": every letter and punctuation mark as a small tile, drawn from the
-// LETTERS and PUNCTUATION tables (so it always matches the drawing), in the text color of the tile.
-// Clicking a letter types it into the text box.
-function alphabetTile(ch, tag){
+// "How to read AIDAScript": every letter, digit and punctuation mark as a small tile, drawn from the
+// LETTERS, DIGITS and PUNCTUATION tables (so it always matches the drawing), in the text color of
+// the tile. Clicking a letter or a digit types it into the text box.
+function alphabetTile(ch, tag, label = ch){
   const tile = document.createElement(tag);
   tile.className = 'alphabet-tile';
   const lines = characterSegments(ch, undefined).map(([x1, y1, x2, y2]) =>
@@ -1150,25 +1150,44 @@ function alphabetTile(ch, tag){
   tile.innerHTML = `<svg viewBox="-1.3 -1.3 2.6 2.6" aria-hidden="true">` +
     `<circle r="0.07" fill="currentColor" opacity="0.35"/>` +
     `<g stroke="currentColor" stroke-width="0.25" stroke-linecap="round">${lines}</g></svg><span></span>`;
-  tile.querySelector('span').textContent = ch;
+  tile.querySelector('span').textContent = label;
   return tile;
 }
 
+// A tile that types its character where the cursor is
+function typingTile(ch){
+  const tile = alphabetTile(ch, 'button');
+  tile.type = 'button';
+  tile.title = `Type ${ch}`;
+  tile.onclick = () => {
+    input.focus();
+    input.setRangeText(ch, input.selectionStart, input.selectionEnd, 'end');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  return tile;
+}
+
+// The punctuation tiles, in this order, with what each one is for (the quote marks have an
+// opening and a closing shape: see quoteMarks in layout.js)
+const PUNCTUATION_TILES = [
+  ['.', '.', 'Period'],
+  [',', ',', 'Comma'],
+  ["'", "'", "Apostrophe (don't), or an opening '"],
+  ['’', "…'", "A closing '"],
+  ['“', '"', 'An opening "'],
+  ['”', '…"', 'A closing "'],
+  ['?', '?', 'Question mark'],
+  ['!', '!', 'Exclamation mark'],
+];
+
 function showAlphabet(){
-  const letters = byId('alphabetLetters');
-  for (const ch of Object.keys(LETTERS)) {
-    const tile = alphabetTile(ch, 'button');
-    tile.type = 'button';
-    tile.title = `Type ${ch}`;
-    tile.onclick = () => {
-      input.focus();
-      input.setRangeText(ch, input.selectionStart, input.selectionEnd, 'end');
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    };
-    letters.append(tile);
+  for (const ch of Object.keys(LETTERS)) byId('alphabetLetters').append(typingTile(ch));
+  for (const ch of '1234567890') byId('alphabetDigits').append(typingTile(ch));
+  for (const [ch, label, title] of PUNCTUATION_TILES) {
+    const tile = alphabetTile(ch, 'div', label);
+    tile.title = title;
+    byId('alphabetPunctuation').append(tile);
   }
-  const marks = byId('alphabetPunctuation');
-  for (const ch of Object.keys(PUNCTUATION)) marks.append(alphabetTile(ch, 'div'));
 }
 
 showAlphabet();

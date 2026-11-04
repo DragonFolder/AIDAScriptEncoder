@@ -2,6 +2,7 @@
   <title>AIDAScript comma (,)</title>
   <rect x="0.5" y="0.5" width="63" height="63" rx="8" fill="#ffffff" stroke="#d0d7de"/>
   <g stroke="#000000" stroke-width="5" stroke-linecap="round">
-  <line x1="42" y1="22" x2="22" y2="42"/>
+  <line x1="32" y1="32" x2="32" y2="22"/>
+  <line x1="32" y1="32" x2="22" y2="42"/>
   </g>
 </svg>

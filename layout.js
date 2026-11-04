@@ -72,23 +72,135 @@ const LETTERS = {
   t: [N, NW],   u: [NW, NE],  v: [N, SE],   w: [E, NE],   x: [NE, SE],  y: [NW, E],   z: [SE, E],
 };
 
-// Characters with no shape (digits, symbols, ...) draw as a dot: two zero-length strokes
+// Digits are one stroke, pointing from the middle to where the digit sits on a phone keypad.
+// Standing apart, most can be told apart by which side of the column they're on (4 is left of
+// the middle, 6 right of it), but 2 and 8 are both on the middle line: they get a bar across the
+// middle end, half a lineSize each way (2 is ⊥, 8 is T).
+// 5, the middle key, and 0, below the keypad, are marks of their own (see PUNCTUATION).
+// Digits stand apart from letters and punctuation; how they sit next to each other: see markY.
+//   1 2 3
+//   4 5 6
+//   7 8 9
+//     0
+const DIGITS = { 1: NW, 2: N, 3: NE, 4: W, 6: E, 7: SW, 8: S, 9: SE };
+const MIDDLE_BAR = [-0.5, 0, 0.5, 0];
+
+// A digit's lines: the stroke, and for 2 and 8 the bar
+function digitMark(digit){
+  const [dx, dy] = DIGITS[digit];
+  return digit == '2' || digit == '8' ? [[0, 0, dx, dy], MIDDLE_BAR] : [[0, 0, dx, dy]];
+}
+
+// The strokes getCharShape gives anything that isn't a letter (a digit or punctuation mark draws
+// its own lines instead): none, as two zero-length strokes. (Characters with no shape at all are
+// drawn as spaces: see drawableText.)
 const NO_SHAPE = [[0, 0], [0, 0]];
+
+// A diamond of four diagonal lines, for the digit 0
+const DIAMOND = [[0, -0.5, 0.5, 0], [0.5, 0, 0, 0.5], [0, 0.5, -0.5, 0], [-0.5, 0, 0, -0.5]];
+
+// A small caret: Λ (apex up) or V (apex down), its middle at x, half 0.3 wide and 0.3 tall
+const caret = (x, up) => {
+  const tip = up ? -0.15 : 0.15, ends = -tip;
+  return [[x, tip, x - 0.3, ends], [x, tip, x + 0.3, ends]];
+};
 
 // Punctuation marks: small shapes that stand alone and never touch other lines.
 // They have half a lineSize of empty space above and below them.
 // Each line is [x1, y1, x2, y2], in lineSizes, relative to the mark's middle.
+// Digits are drawn the same way (see DIGITS).
+// Quote marks open with Λ and close with V; drawableText decides which is which, and turns
+// every quote mark into one of the six below.
 const PUNCTUATION = {
-  '.': [[0, -0.5, 0, 0.5], [-0.5, 0, 0.5, 0]],                                    // +
-  ',': [[0.5, -0.5, -0.5, 0.5]],                                                  // /
-  "'": [[-0.5, 0, 0.5, 0]],                                                       // —
-  '"': [[-0.5, -0.25, 0.5, -0.25], [-0.5, 0.25, 0.5, 0.25]],                      // =
+  '.': [[0, 0, 0, 0]],                                                            // a dot
+  ',': [[0, 0, 0, -0.5], [0, 0, -0.5, 0.5]],                                      // a small N and SW
+  "'": caret(0, true),                                                            // Λ: an apostrophe (don't), or a ' left unclosed
+  '‘': caret(0, true),                                                            // Λ: an opening '
+  '’': caret(0, false),                                                           // V: a closing '
+  '"': [...caret(-0.5, true), ...caret(0.5, true)],                               // ΛΛ: a " left unclosed
+  '“': [...caret(-0.5, true), ...caret(0.5, true)],                               // ΛΛ: an opening "
+  '”': [...caret(-0.5, false), ...caret(0.5, false)],                             // VV: a closing "
   '?': [[-0.5, -0.5, 0.5, -0.5], [0.5, -0.5, 0, 0], [0, 0, 0, 0.5]],              // hook: top bar, diagonal to the middle, down
   '!': [[0, -0.5, 0, 0.5], [-0.5, -0.25, 0.5, -0.25], [-0.5, 0.25, 0.5, 0.25]],   // ‡
+  '0': DIAMOND,                                                                   // a diamond: ◇
+  '5': [[0, -0.5, 0, 0.5], [-0.5, 0, 0.5, 0]],                                    // a +
+  ...Object.fromEntries(Object.keys(DIGITS).map(digit => [digit, digitMark(digit)])),
 };
 
 function isPunctuation(ch){
   return Object.hasOwn(PUNCTUATION, ch);
+}
+
+// A number whose digits all lie on one side of the column's middle line (only 1, 4 and 7, or only
+// 3, 6 and 9) wouldn't show where that middle is, so a lone 4 would look like a 6. Each of its
+// digits gets a short line on the middle line, half a lineSize above and below its own middle;
+// one after another, these join up into one line beside the number. drawableText swaps such
+// digits for a character of their own (from the Private Use Area, never typed), so they can be
+// drawn and placed like any other mark; readableChar turns them back.
+const MIDDLE_TICK = [0, -0.5, 0, 0.5];
+const standInFor = digit => String.fromCharCode(0xE000 + Number(digit));
+const TICKED = {};   // the stand-in character -> its digit
+for (const digit of '134679') {
+  TICKED[standInFor(digit)] = digit;
+  PUNCTUATION[standInFor(digit)] = [...PUNCTUATION[digit], MIDDLE_TICK];
+}
+const readableChar = ch => TICKED[ch] ?? ch;
+const isDigit = ch => /^[0-9]$/.test(readableChar(ch ?? ''));
+
+// Swap the digits of every one-sided number in `text` for their stand-ins (see TICKED)
+function markOneSidedNumbers(text){
+  return text.replace(/[0-9]+/g, number =>
+    /^([147]+|[369]+)$/.test(number) ? [...number].map(standInFor).join('') : number);
+}
+
+// The text as it's drawn:
+// - accents taken off letters (é becomes e);
+// - every quote mark made into an apostrophe, an opening or a closing one (see quoteMarks);
+// - every other character with no shape (symbols, tabs, emoji, ...) drawn as a space, so what it
+//   separated stays apart (12:30 is 12 30, not 1230);
+// - the digits of a number on one side of the middle line swapped for their stand-ins (see TICKED).
+// Spaces and line breaks stay.
+function drawableText(text){
+  // (every digit and quote mark is in PUNCTUATION; the stand-ins are never taken as typed)
+  const drawn = ch => ch == ' ' || ch == '\n' || Object.hasOwn(LETTERS, ch.toLowerCase()) ||
+                      (isPunctuation(ch) && !Object.hasOwn(TICKED, ch));
+  const kept = [...text.normalize('NFD')]
+    .filter(ch => !/\p{M}/u.test(ch))           // (the accents, split off by NFD)
+    .map(ch => drawn(ch) ? ch : ' ');
+  return markOneSidedNumbers(quoteMarks(kept).join(''));
+}
+
+// Which quote marks open, which close, and which are apostrophes, line by line:
+// - a ' (or ’) with a letter or digit on both sides is an apostrophe (don't, it's): "'";
+// - a curly quote says itself whether it opens (‘ “) or closes (’ ”);
+// - a straight " closes if a " is open on this line, and opens otherwise;
+// - a straight ' with a letter or digit just before it (and none after) closes an open ',
+//   or else is an apostrophe (the dogs'); any other straight ' opens.
+// A mark that opens but is never closed looks the same as an apostrophe (Λ), so nothing is lost.
+function quoteMarks(chars){
+  const isWord = ch => ch !== undefined && (Object.hasOwn(LETTERS, ch.toLowerCase()) || /^[0-9]$/.test(ch));
+  let singleOpen = false, doubleOpen = false;
+  return chars.map((ch, i) => {
+    if (ch == '\n') { singleOpen = doubleOpen = false; return ch; }
+    const before = isWord(chars[i - 1]), after = isWord(chars[i + 1]);
+    switch (ch) {
+      case '“': doubleOpen = true;  return '“';
+      case '”': doubleOpen = false; return '”';
+      case '"': doubleOpen = !doubleOpen; return doubleOpen ? '“' : '”';
+      case '‘': singleOpen = true;  return '‘';
+      case '’':
+        if (before && after) return "'";
+        singleOpen = false; return '’';
+      case "'":
+        if (before && after) return "'";
+        if (before) {
+          if (!singleOpen) return "'";
+          singleOpen = false; return '’';
+        }
+        singleOpen = true; return '‘';
+    }
+    return ch;
+  });
 }
 
 // The two stroke directions of a character (NO_SHAPE if it isn't a letter)
@@ -99,14 +211,17 @@ function getCharShape(ch){
 
 // How far above / below its middle a character reaches, in lineSizes.
 // The middle point (0) is always part of a letter.
-// Punctuation uses the actual height of its lines: ' is flat (0), " reaches ±0.25, the rest ±0.5.
+// Punctuation uses the height of its lines, rounded out to the next quarter lineSize: every
+// position stays a whole number of quarter lineSizes, which the compact layout relies on (see
+// clashHeights). So . is a point (0), ' and " (reaching ±0.15) take ±0.25, and the rest
+// take ±0.5.
 function letterTop(ch){
-  if (isPunctuation(ch)) return Math.min(...punctuationYs(ch));
+  if (isPunctuation(ch)) return Math.floor(Math.min(...punctuationYs(ch)) * 4 + 1e-9) / 4;
   return Math.min(0, ...getCharShape(ch).map(dir => dir[1]));   // -1 if a stroke points up, else 0
 }
 
 function letterBottom(ch){
-  if (isPunctuation(ch)) return Math.max(...punctuationYs(ch));
+  if (isPunctuation(ch)) return Math.ceil(Math.max(...punctuationYs(ch)) * 4 - 1e-9) / 4;
   return Math.max(0, ...getCharShape(ch).map(dir => dir[1]));   // 1 if a stroke points down, else 0
 }
 
@@ -194,8 +309,7 @@ function positionOf(chars, index, positions){
 
   if (before < 0)              return firstLetterY(ch, spaces);
   if (spaces > 0)              return wordGapY(chars[before], previousY, ch, spaces);
-  if (isPunctuation(ch))       return punctuationY(chars, index, positions);
-  if (isPunctuation(chars[before])) return afterPunctuationY(chars[before], previousY, ch);
+  if (isPunctuation(ch) || isPunctuation(chars[before])) return markY(chars, index, positions);
   return letterAfterLetterY(chars, index, positions);
 }
 
@@ -215,18 +329,151 @@ function wordGapY(previousCh, previousY, ch, spaces){
   return y;
 }
 
-// Punctuation goes below everything placed so far on the line, with half a lineSize of empty space
-function punctuationY(chars, index, positions){
-  let lowest = -Infinity;
-  for (let k = 0; k < index; k++) {
-    if (chars[k] != ' ') lowest = Math.max(lowest, positions[k] + letterBottom(chars[k]));
+// A punctuation mark or digit, or a letter right after one: as high as it can go while keeping
+// half a lineSize of empty space below every line above it that it sits under (measured straight
+// down, where the two overlap from left to right), and at least half a step below the previous
+// character's middle, so the reading order stays top to bottom. A 0 after a 9 goes right under
+// the 9's middle, not below the tip of its diagonal far to the right.
+// Positions stay whole quarter lineSizes (see clashHeights).
+const MARK_GAP = 0.5;
+function markY(chars, index, positions){
+  // A digit right after a digit goes half a step below it, and further down, half a step at a
+  // time, while any line would go inside a 0's diamond, or two lines would meet other than at
+  // their middles (see meetsBadly)
+  if (isDigit(chars[index]) && isDigit(chars[index - 1])) {
+    let y = positions[index - 1] + 0.5;
+    while (insideDiamond(chars, index, positions, y) || meetsBadly(chars, index, positions, y)) y += 0.5;
+    return y;
   }
-  return lowest + 0.5 - letterTop(chars[index]);
+  const lines = characterSegments(chars[index], chars[index - 1]);
+  const top = letterTop(chars[index]);
+  let y = positions[index - 1] + 0.5;
+  for (let k = index - 1; k >= 0; k--) {
+    if (chars[k] == ' ') continue;
+    // (nothing reaches more than a lineSize below its middle: lines this far up can't matter)
+    if (positions[k] + 1 + MARK_GAP <= y + top) break;
+    for (const above of characterSegments(chars[k], chars[k - 1])) {
+      for (const line of lines) y = Math.max(y, lowestBelow(above, positions[k], line));
+    }
+  }
+  y = Math.ceil(y * 4 - 1e-9) / 4;
+  // (lines that don't overlap from left to right can still come close on a slant: keep them apart)
+  while (closeToEarlier(chars, index, positions, lines, y)) y += 0.25;
+  return y;
 }
 
-// Right after punctuation: half a lineSize of empty space below it
-function afterPunctuationY(previousCh, previousY, ch){
-  return previousY + letterBottom(previousCh) + 0.5 - letterTop(ch);
+// The lines of the digit chars[k] with its middle at `y` (without its middle line, if asked)
+function placedLines(chars, k, y, withMiddleLine = true){
+  return characterSegments(withMiddleLine ? chars[k] : readableChar(chars[k]))
+    .map(([x1, y1, x2, y2]) => [x1, y + y1, x2, y + y2]);
+}
+
+// Placing the digit at `index` at `y`: would a line of it meet the diamond of a 0 in the same
+// number anywhere but at a corner, or a line of an earlier digit meet its own diamond (if it's
+// a 0) like that? Going inside, running along an edge or touching an edge all count.
+function insideDiamond(chars, index, positions, y){
+  const mine = placedLines(chars, index, y);
+  for (let k = index - 1; k >= 0 && isDigit(chars[k]); k--) {
+    if (y - positions[k] > 2) break;   // (too far apart to reach each other)
+    const theirs = placedLines(chars, k, positions[k]);
+    if (chars[k] == '0' && mine.some(line => crossesDiamond(line, 0, positions[k]))) return true;
+    if (chars[index] == '0' && theirs.some(line => crossesDiamond(line, 0, y))) return true;
+  }
+  return false;
+}
+
+// Placing the digit at `index` at `y`: would one of its lines meet a line of an earlier digit in
+// the same number other than the way lines may meet: crossing in an X at both lines' middles, or
+// with one line's tip landing on the other's middle (a T, see meetsAtMiddle)? (A 0's diamond has
+// its own rule: see insideDiamond.)
+function meetsBadly(chars, index, positions, y){
+  if (chars[index] == '0') return false;
+  const middle = ([x1, y1, x2, y2]) => [(x1 + x2) / 2, (y1 + y2) / 2];
+  const same = ([x1, y1], [x2, y2]) => Math.abs(x1 - x2) < 1e-9 && Math.abs(y1 - y2) < 1e-9;
+  const parallel = ([x1, y1, x2, y2], [u1, v1, u2, v2]) => Math.abs((x2 - x1)*(v2 - v1) - (y2 - y1)*(u2 - u1)) < 1e-9;
+  for (let k = index - 1; k >= 0 && isDigit(chars[k]); k--) {
+    if (y - positions[k] > 2) break;   // (too far apart to reach each other)
+    if (chars[k] == '0') continue;
+    // Between two digits with middle lines (see TICKED), those lines are left out: they join up on
+    // purpose, and meet the digits' strokes at their middles. Against any other digit they count.
+    const ticked = Object.hasOwn(TICKED, chars[index]) && Object.hasOwn(TICKED, chars[k]);
+    const mine = placedLines(chars, index, y, !ticked);
+    for (const theirs of placedLines(chars, k, positions[k], !ticked)) {
+      for (const line of mine) {
+        if (segmentDistance(line, theirs) > 1e-9) continue;   // they don't meet
+        // In a number with a middle line, a crossing closes a triangle against that line, as tall
+        // as the step: under a full step (41: half a step) it's too small to look good
+        if (ticked && y - positions[k] < 1) return true;
+        // A full step or more apart, two digits' tips may meet end to end instead (41 and 74 with
+        // their middle line, the 4 and 1 of 431, the 7 and 1 of 701): any triangle that closes is
+        // then at least a full step tall, the size of 71's or bigger. Not in a straight line, though
+        // (82: the two strokes would read as one long line)
+        const tip = ([x1, y1, x2, y2]) => [x2, y2];   // (a digit's stroke goes from its middle out)
+        if (y - positions[k] >= 1 && same(tip(line), tip(theirs)) && !parallel(line, theirs)) continue;
+        const crossAtMiddles = !parallel(line, theirs) && same(middle(line), middle(theirs));
+        if (!crossAtMiddles && !meetsAtMiddle(line, theirs, [0, y], [0, positions[k]])) return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Does a line meet the diamond (see DIAMOND) whose middle is (cx, cy) anywhere but at a corner?
+// The diamond, edges included, is where |x - cx| + |y - cy| <= 0.5. Along a straight line that
+// sum changes straight (it only bends where the line crosses the diamond's middle row or column),
+// so each straight piece either stays out or meets the diamond in one stretch: from where the
+// sum is lowest, as far as it stays 0.5 or less. Meeting it is fine only when that stretch is a
+// single point, and that point is a corner.
+function crossesDiamond([x1, y1, x2, y2], cx, cy){
+  const at = t => [x1 + t * (x2 - x1), y1 + t * (y2 - y1)];
+  const sum = t => { const [x, y] = at(t); return Math.abs(x - cx) + Math.abs(y - cy); };
+  const ts = [0, 1];
+  if (x1 != x2) ts.push((cx - x1) / (x2 - x1));
+  if (y1 != y2) ts.push((cy - y1) / (y2 - y1));
+  const bends = [...new Set(ts.filter(t => t >= 0 && t <= 1))].sort((a, b) => a - b);
+  const meets = [];   // the parts of the line inside or on the diamond, as [from, to]
+  for (let i = 0; i < bends.length; i++) {
+    const t0 = bends[i], t1 = bends[i + 1] ?? t0, s0 = sum(t0), s1 = sum(t1);
+    if (Math.min(s0, s1) > 0.5 + 1e-9) continue;
+    // (the sum is straight between t0 and t1: where it's 0.5 or less)
+    const cross = Math.abs(s1 - s0) < 1e-12 ? null : t0 + (0.5 - s0) / (s1 - s0) * (t1 - t0);
+    const from = s0 <= 0.5 + 1e-9 ? t0 : cross, to = s1 <= 0.5 + 1e-9 ? t1 : cross;
+    meets.push([from, to]);
+  }
+  if (meets.length == 0) return false;
+  const length = Math.hypot(x2 - x1, y2 - y1);
+  const isCorner = ([x, y]) => [[0, -0.5], [0.5, 0], [0, 0.5], [-0.5, 0]]
+    .some(([dx, dy]) => Math.abs(x - cx - dx) < 1e-9 && Math.abs(y - cy - dy) < 1e-9);
+  return meets.some(([from, to]) => (to - from) * length > 1e-9 || !isCorner(at(from)));
+}
+
+// The y `line` needs to sit at to keep MARK_GAP of empty space below `above` (whose character is
+// at `aboveY`) wherever one is straight over the other; -Infinity if they never are
+function lowestBelow(above, aboveY, line){
+  const xRange = ([x1, , x2]) => [Math.min(x1, x2), Math.max(x1, x2)];
+  const [a1, a2] = xRange(above), [b1, b2] = xRange(line);
+  const from = Math.max(a1, b1), to = Math.min(a2, b2);
+  if (from > to + 1e-9) return -Infinity;
+  // The height of a line at x: a straight-up line covers both its ends' heights
+  const heightAt = ([x1, y1, x2, y2], x, pick) =>
+    Math.abs(x2 - x1) < 1e-9 ? pick(y1, y2) : y1 + (x - x1) / (x2 - x1) * (y2 - y1);
+  // (both are straight lines, so the closest spot is at one end of the overlap)
+  return Math.max(...[from, to].map(x =>
+    aboveY + heightAt(above, x, Math.max) + MARK_GAP - heightAt(line, x, Math.min)));
+}
+
+// Would `lines` (of the character at `index`, placed at `y`) come within a stroke's width or so
+// (0.3 lineSize) of a line of an earlier character?
+function closeToEarlier(chars, index, positions, lines, y){
+  const shift = (segment, dy) => [segment[0], segment[1] + dy, segment[2], segment[3] + dy];
+  for (let k = index - 1; k >= 0; k--) {
+    if (chars[k] == ' ') continue;
+    if (positions[k] + 1 + 0.3 <= y - 1) break;
+    for (const above of characterSegments(chars[k], chars[k - 1])) {
+      if (lines.some(line => segmentDistance(shift(above, positions[k]), shift(line, y)) < 0.3)) return true;
+    }
+  }
+  return false;
 }
 
 // A letter directly after another letter
@@ -243,7 +490,7 @@ function letterAfterLetterY(chars, index, positions){
   let step = halfStep ? 0.5 : 1;
 
   // The letters before the previous one can still be in reach: keep moving down
-  // half a step at a time until the current letter no longer crosses any of them
+  // half a step at a time until the current letter no longer crosses any of them.
   while (intersectsEarlierLetters(chars, index, positions, positions[index - 1] + step)) {
     step += 0.5;
   }
