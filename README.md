@@ -50,9 +50,9 @@ Letters are stacked so their strokes connect without crossing in the wrong place
 
 Punctuation marks are small shapes that stand apart and never touch anything:
 
-| Mark | `.` | `,` | `'` | `"` | `?` | `!` |
-|---|---|---|---|---|---|---|
-| Shape | `+` | `/` | `—` | `=` | hook | `‡` |
+| `.` | `,` | `'` | `"` | `?` | `!` |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| ![period](images/punctuation/period.svg) | ![comma](images/punctuation/comma.svg) | ![apostrophe](images/punctuation/apostrophe.svg) | ![quote](images/punctuation/quote.svg) | ![question](images/punctuation/question.svg) | ![exclamation](images/punctuation/exclamation.svg) |
 
 ## Settings
 
@@ -89,10 +89,10 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 | `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
 | `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
 | `index.js` | The page: settings, drawing, preview, downloads |
-| `images/letters/` | The letter pictures in this README |
+| `images/` | The letter and punctuation pictures in this README |
 | `tools/make-letter-images.js` | Redraws those pictures (`node tools/make-letter-images.js`) |
 
-To change how a letter looks, edit the `LETTERS` table in `layout.js` (then run `node tools/make-letter-images.js` to redraw the pictures above); for punctuation, the `PUNCTUATION` table.
+To change how a letter looks, edit the `LETTERS` table in `layout.js`; for punctuation, the `PUNCTUATION` table. Then run `node tools/make-letter-images.js` to redraw the pictures above.
 
 ## Known limitations
 
