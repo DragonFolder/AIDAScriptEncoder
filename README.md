@@ -17,6 +17,7 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 - Settings for size, spacing, colors and layout
 - **How to read AIDAScript**, at the bottom of the page: every letter, digit and punctuation mark (click a letter or digit to type it)
 - A **compact** layout that packs the text into a tight blob, guided by a shape of your choice
+- **Sigils** (in the navbar): turn a sentence into a sigil, just for fun
 
 ## How AIDAScript works
 
@@ -108,6 +109,10 @@ Punctuation marks are small shapes that stand apart and never touch anything. Qu
 
 In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview step through the best few different layouts for the same text.
 
+## Sigils
+
+Just for fun: the **Sigils** page (in the navbar) turns a sentence into a sigil. Each letter becomes a line between its two semaphore points on a circle, and the words join into one figure. A dot marks the first letter and a crossbar the last. The downloads don't contain the sentence.
+
 ## Project structure
 
 | File | Contents |
@@ -117,6 +122,9 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 | `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
 | `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
 | `colors.js` | The Random colors generator |
+| `sigils.html`, `sigils.js` | The Sigils page |
+| `sigil.js` | How a sentence becomes a sigil (used by the Sigils page) |
+| `sigil-worker.js` | Works out sigils in the background |
 | `index.js` | The page: settings, drawing, preview, downloads, sharing, the alphabet |
 | `tests/` | The tests (see [Testing](#testing)) |
 | `images/` | The logo, the tab icon (`favicon.svg`), the picture shown when a link is shared (`social-preview.png`), and the letter, digit and punctuation pictures in this README |
@@ -128,10 +136,10 @@ To change how a letter looks, edit the `LETTERS` table in `layout.js`; for digit
 
 Two sets of checks, worth running before merging into `main`:
 
-- **`node tests/run-tests.js`** (about 5 seconds, needs [Node.js](https://nodejs.org/), nothing else): the layouts are the same as before (`tests/snapshots.json`), lines of different columns never touch, no guide shape makes the layout freeze, the guide shapes' sums agree, and random colors stay readable.
+- **`node tests/run-tests.js`** (about 15 seconds, needs [Node.js](https://nodejs.org/), nothing else): the layouts are the same as before (`tests/snapshots.json`), lines of different columns never touch, no guide shape makes the layout freeze, the guide shapes' sums agree, random colors stay readable, and sigils hold together.
   - `--full` also tries every Surprise me combination (a few minutes).
   - `--update` saves the current layouts as the expected ones. Use it after changing the layout on purpose, once you've checked the result in the page.
-- **`tests/browser.html`**: open it through a local server (for example `python -m http.server` in the project folder, then `http://localhost:8000/tests/browser.html`) and press **Run the tests**. It clicks through the real page: drawing, the background worker, the frames, Random colors, Surprise me and Reset. Nothing is downloaded.
+- **`tests/browser.html`**: open it through a local server (for example `python -m http.server` in the project folder, then `http://localhost:8000/tests/browser.html`) and press **Run the tests**. It clicks through the real page: drawing, the background worker, the frames, Random colors, Surprise me and Reset, and checks that the Sigils page draws. Nothing is downloaded.
 
 ## Known limitations
 

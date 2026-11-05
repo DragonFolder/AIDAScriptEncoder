@@ -1,0 +1,233 @@
+// =============================================================================
+// AIDAScript Sigils page: turns each line of the text into a sigil (see sigil.js, loaded first).
+//
+// The sigils are worked out in a background worker (sigil-worker.js), so the page stays
+// responsive with long text; without a worker (some browsers don't allow one for a page opened
+// straight from a file), on the page. They're kept for the text and spread they were made for, so
+// changing a color or the size only draws them again.
+//
+// The settings are remembered for the next visit; the text isn't, and the downloads don't carry
+// it either: a sigil is meant to keep its sentence to itself.
+// =============================================================================
+
+const byId = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+const input = byId('sigilText');
+const preview = byId('sigilPreview');
+const SETTINGS = ['setSpread', 'setSigilSize', 'setSigilLine', 'setSigilBg', 'setSigilTransparent', 'setSigilMarks', 'setSigilOutline', 'setSigilGuides'];
+const SETTINGS_KEY = 'aidascript.sigilSettings';
+
+function settings(){
+  const size = Number(byId('setSigilSize').value);
+  return {
+    spread: Number(byId('setSpread').value) / 100,
+    size: Number.isFinite(size) && size >= 10 && size <= 200 ? size : 50,
+    line: byId('setSigilLine').value,
+    background: byId('setSigilBg').value,
+    transparent: byId('setSigilTransparent').checked,
+    marks: byId('setSigilMarks').checked,      // the dot and the crossbar
+    outline: byId('setSigilOutline').checked,  // a thin edge around the dot, in the background color
+  };
+}
+
+
+// -----------------------------------------------------------------------------
+// Working out the sigils (in the background)
+// -----------------------------------------------------------------------------
+
+let worker = null, onPage = false;
+let request = 0;                       // the latest request: replies to older ones are dropped
+let waiting = null;                    // what to do with the reply to the latest request
+let made = { key: null, sigils: [] };  // the sigils for the text and spread they were made for
+
+function workOut(){
+  const { spread } = settings();
+  const lines = input.value.split('\n');
+  const key = JSON.stringify([lines, spread]);
+  if (key == made.key) { draw(); return; }
+  const id = ++request;
+  byId('sigilBusy').hidden = false;
+  const done = sigils => {
+    if (id != request) return;
+    made = { key, sigils };
+    byId('sigilBusy').hidden = true;
+    draw();
+  };
+  waiting = done;
+  if (!onPage && !worker) {
+    try {
+      worker = new Worker('sigil-worker.js');
+      worker.onmessage = ({ data }) => { if (data.id == request) waiting(data.sigils); };
+      worker.onerror = event => {   // (it didn't start: from now on, on the page)
+        event.preventDefault();
+        worker = null;
+        onPage = true;
+        workOut();
+      };
+    } catch {
+      onPage = true;
+    }
+  }
+  if (worker) {
+    worker.postMessage({ id, lines, spread });
+  } else {
+    setTimeout(() => done(lines.map(line => sigilOf(line, { spread }))), 20);   // (after "Drawing…" has shown)
+  }
+}
+
+// While typing, wait for a short pause first
+let typingTimer = null;
+input.addEventListener('input', () => {
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(workOut, 250);
+});
+
+
+// -----------------------------------------------------------------------------
+// Drawing
+// -----------------------------------------------------------------------------
+
+let svg = null;   // the drawing now in the preview (for the downloads)
+
+// The sigils side by side (sigil sizes, in pixels for a circle of radius SIGIL.R), scaled to the size
+// asked for, in the colors asked for, as SVG text. With `guides`, each circle's octagon is drawn
+// faintly behind (the picture grows to show them whole): for the preview only, never downloaded.
+// Null if there's nothing to draw.
+function picture(guides){
+  const { size, line, background, transparent, marks, outline } = settings();
+  const sigils = made.sigils.filter(s => s);
+  if (!sigils.length) return null;
+  const gap = SIGIL.R, pad = SIGIL.R * 0.4;
+  const height = Math.max(...sigils.map(s => s.box.height));
+  const octagon = ([cx, cy]) => SIGIL_POINTS.map((_, i) => [cx + SIGIL.R * Math.cos(pointAngle(i)), cy + SIGIL.R * Math.sin(pointAngle(i))]);
+  let x = pad, body = '', guide = '';
+  const corners = [];   // (the guides' corners, where they're drawn)
+  for (const s of sigils) {
+    const dx = x - s.box.x, dy = pad + (height - s.box.height) / 2 - s.box.y;
+    const lines = s.lines.map(([[x1, y1], [x2, y2]]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join('');
+    const [[b1, b2], [b3, b4]] = s.bar;
+    // (the dot can get a thin edge in the background color, to stand apart from lines near it)
+    const edge = outline && !transparent ? ` stroke="${background}" stroke-width="2"` : '';
+    const marked = !marks ? '' :
+      `<line x1="${b1}" y1="${b2}" x2="${b3}" y2="${b4}" stroke="${line}" stroke-width="4" stroke-linecap="round"/>` +
+      `<circle cx="${s.dot.at[0]}" cy="${s.dot.at[1]}" r="${s.dot.r}" fill="${line}"${edge}/>`;
+    if (guides) {
+      for (const centre of s.circles) {
+        const points = octagon(centre);
+        corners.push(...points.map(([u, v]) => [u + dx, v + dy]));
+        guide += `<polygon points="${points.map(p => p.join(',')).join(' ')}" transform="translate(${dx},${dy})"/>`;
+      }
+    }
+    body += `<g transform="translate(${dx},${dy})">` +
+      `<g stroke="${line}" stroke-width="${SIGIL.LINE}" stroke-linecap="round">${lines}</g>${marked}</g>`;
+    x += s.box.width + gap;
+  }
+  const width = x - gap + pad, full = height + 2 * pad, scale = size / SIGIL.R;
+  const room = 4;
+  const x0 = Math.min(0, ...corners.map(p => p[0] - room)), y0 = Math.min(0, ...corners.map(p => p[1] - room));
+  const x1 = Math.max(width, ...corners.map(p => p[0] + room)), y1 = Math.max(full, ...corners.map(p => p[1] + room));
+  const back = transparent ? '' : `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="${background}"/>`;
+  const guideLayer = guide && `<g class="guide" fill="none" stroke="${line}" stroke-opacity="0.3" stroke-width="1.5" stroke-dasharray="4 4">${guide}</g>`;
+  return `<svg xmlns="${NS}" width="${(x1 - x0) * scale}" height="${(y1 - y0) * scale}" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}">` +
+         `${back}${guideLayer}${body}</svg>`;
+}
+
+// The preview: the picture, with the guides if asked for
+function draw(){
+  const text = picture(byId('setSigilGuides').checked);
+  preview.replaceChildren();
+  svg = null;
+  if (!text) {
+    preview.innerHTML = '<span class="text-body-secondary small">Type a sentence to see its sigil.</span>';
+  } else {
+    preview.innerHTML = text;
+    svg = preview.querySelector('svg');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'An AIDAScript sigil');
+    svg.classList.toggle('transparent', settings().transparent);
+  }
+  updateButtons();
+}
+
+function updateButtons(){
+  byId('sigilSvg').disabled = !svg;
+  byId('sigilPng').disabled = !svg;
+  // (the outline only matters with the marks, and on a background)
+  byId('setSigilOutline').disabled = !byId('setSigilMarks').checked || byId('setSigilTransparent').checked;
+}
+
+// Random colors: a line and background color that go together (the same as the encoder's, see
+// colors.js), and the name of the pairing
+byId('sigilRandomColors').onclick = () => {
+  const { line, background, name } = randomColors();
+  byId('setSigilLine').value = line;
+  byId('setSigilBg').value = background;
+  byId('setSigilTransparent').checked = false;
+  byId('sigilColorsName').textContent = name;
+  remember();
+  draw();
+};
+
+
+// -----------------------------------------------------------------------------
+// Downloads (without the sentence: see above)
+// -----------------------------------------------------------------------------
+
+function download(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// The downloads are drawn again, without the guides (see picture)
+function svgText(){
+  return picture(false);
+}
+
+byId('sigilSvg').onclick = () => download(new Blob([svgText()], { type: 'image/svg+xml' }), 'sigil.svg');
+
+// The PNG, twice the size of the downloaded picture (the preview is bigger with the guides)
+byId('sigilPng').onclick = () => {
+  const text = svgText();
+  const size = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(Number(size.getAttribute('width')) * 2);
+    c.height = Math.ceil(Number(size.getAttribute('height')) * 2);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob(blob => blob && download(blob, 'sigil.png'), 'image/png');
+  };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text);
+};
+
+
+// -----------------------------------------------------------------------------
+// Settings: remembered for the next visit
+// -----------------------------------------------------------------------------
+
+function remember(){
+  try {
+    const values = Object.fromEntries(SETTINGS.map(id => [id, byId(id).type == 'checkbox' ? byId(id).checked : byId(id).value]));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(values));
+  } catch { /* (storage not allowed: nothing to remember) */ }
+}
+function restore(){
+  try {
+    const values = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}');
+    for (const id of SETTINGS) {
+      if (!(id in values)) continue;
+      if (byId(id).type == 'checkbox') byId(id).checked = values[id] === true;
+      else if (typeof values[id] == 'string') byId(id).value = values[id];
+    }
+  } catch { /* (nothing remembered, or storage not allowed) */ }
+}
+
+for (const id of SETTINGS) {
+  byId(id).addEventListener(byId(id).type == 'range' ? 'change' : 'input', () => { remember(); workOut(); });
+}
+
+restore();
+workOut();

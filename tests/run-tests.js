@@ -14,6 +14,8 @@
 //   - No freezes: every layout finishes quickly, for every guide shape, stretch and rotation.
 //   - The guide shapes' sums agree with each other (their outline, size and area).
 //   - Random colors are always valid and readable against their background.
+//   - Sigils (sigil.js): every sample word and sentence is one figure, with no tiny triangles, and
+//     comes out the same every time.
 // The page itself (drawing, the background worker, the buttons) is checked by tests/browser.html.
 
 const fs = require('fs');
@@ -355,6 +357,28 @@ test('digits, quote marks and every punctuation mark place and draw', () => {
 });
 
 console.log('\nRandom colors');
+
+// The Sigils page's generator (sigil.js): every word one connected figure, with no triangle smaller
+// than TINY; sentences drawn the same every time; text with no letters drawn as nothing
+test('sigils: every word is one figure with no tiny triangles; sentences come out the same every time', () => {
+  const sigil = new Function(['layout.js', 'sigil.js'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n') +
+    '\nreturn { sigilOf, sigilWord, sigilWords, segment, groupCount, hasTinyTriangle };')();
+  const words = ['magic', 'sigil', 'spirit', 'love', 'confidence', 'aidascript', 'shadowfolder', 'transformation',
+                 'manifestation', 'serendipity', 'abundance', 'intelligence', 'wolf', 'sun', 'star', 'courage'];
+  for (const w of words) {
+    const lines = sigil.sigilWord(w).lines.map(l => ({ line: sigil.segment(...l.ends), t0: 0, t1: 1 }));
+    check(sigil.groupCount(lines) == 1, `${w} is in ${sigil.groupCount(lines)} pieces that don't touch`);
+    check(!sigil.hasTinyTriangle(lines), `${w} closes a tiny triangle`);
+  }
+  check(JSON.stringify(sigil.sigilWords("Don't STOP, believing!")) == '["dont","stop","believing"]', 'the words of a text');
+  check(sigil.sigilOf('123 ?!') === null, 'a text with no letters draws nothing');
+  const started = Date.now();
+  for (const text of ['courage over fear', 'i am loved', 'let it go', 'the stars guide my path']) {
+    const once = JSON.stringify(sigil.sigilOf(text)), again = JSON.stringify(sigil.sigilOf(text));
+    check(once == again, `${text} came out differently the second time`);
+  }
+  return `${words.length} words, 4 sentences in ${Date.now() - started} ms`;
+});
 
 test('every palette is valid and readable', () => {
   let worst = Infinity;
