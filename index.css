@@ -131,7 +131,7 @@ button.alphabet-tile:hover, button.alphabet-tile:focus-visible { border-color: v
 .fold-card:not([open]) > summary { border-bottom: 0; border-radius: var(--bs-card-inner-border-radius); }
 
 /* Sigils page: the drawing, centred; a transparent background shows as a checkerboard (preview only) */
-.sigil-preview { min-height: 200px; display: flex; align-items: center; justify-content: center; }
-.sigil-preview svg { display: block; max-width: 100%; height: auto; }
+.sigil-preview { min-height: 200px; display: flex; align-items: center; }
+.sigil-preview svg { display: block; margin: auto; flex: none; }   /* (zoomed in, it scrolls: see sigils.js) */
 .sigil-preview svg.transparent { background: repeating-conic-gradient(#d0d0d0 0 25%, #ffffff 0 50%) 0 0 / 16px 16px; }
 #sigilText { font-family: var(--bs-font-monospace); resize: vertical; }

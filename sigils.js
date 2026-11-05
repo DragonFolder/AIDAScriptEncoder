@@ -145,9 +145,32 @@ function draw(){
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label', 'An AIDAScript sigil');
     svg.classList.toggle('transparent', settings().transparent);
+    applyZoom();
   }
   updateButtons();
 }
+
+// Zoom: the preview only (the downloads are as big as Size says), remembered for the next visit
+const ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+const ZOOM_KEY = 'aidascript.sigilZoom';
+let zoom = 1;
+try { const z = Number(localStorage.getItem(ZOOM_KEY)); if (ZOOMS.includes(z)) zoom = z; } catch { /* (not remembered) */ }
+function applyZoom(){
+  byId('sigilZoomReset').textContent = `${Math.round(zoom * 100)}%`;
+  byId('sigilZoomOut').disabled = zoom == ZOOMS[0];
+  byId('sigilZoomIn').disabled = zoom == ZOOMS.at(-1);
+  if (!svg) return;
+  svg.style.width = `${Number(svg.getAttribute('width')) * zoom}px`;
+  svg.style.height = `${Number(svg.getAttribute('height')) * zoom}px`;
+}
+function changeZoom(to){
+  zoom = to;
+  try { localStorage.setItem(ZOOM_KEY, String(zoom)); } catch { /* (not remembered) */ }
+  applyZoom();
+}
+byId('sigilZoomIn').onclick = () => changeZoom(ZOOMS[Math.min(ZOOMS.length - 1, ZOOMS.indexOf(zoom) + 1)]);
+byId('sigilZoomOut').onclick = () => changeZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(zoom) - 1)]);
+byId('sigilZoomReset').onclick = () => changeZoom(1);
 
 function updateButtons(){
   byId('sigilSvg').disabled = !svg;
@@ -228,6 +251,20 @@ function restore(){
 for (const id of SETTINGS) {
   byId(id).addEventListener(byId(id).type == 'range' ? 'change' : 'input', () => { remember(); workOut(); });
 }
+
+// The settings fold away (handy on a phone): folded to begin with on a small screen, and
+// remembered open or folded after that
+const FOLDED_KEY = 'aidascript.sigilSettingsFolded';
+const settingsBox = byId('sigilSettingsBox');
+try {
+  const folded = localStorage.getItem(FOLDED_KEY);
+  settingsBox.open = folded === null ? window.innerWidth >= 768 : folded != 'true';
+} catch {
+  settingsBox.open = window.innerWidth >= 768;
+}
+settingsBox.addEventListener('toggle', () => {
+  try { localStorage.setItem(FOLDED_KEY, String(!settingsBox.open)); } catch { /* (not remembered) */ }
+});
 
 restore();
 workOut();
