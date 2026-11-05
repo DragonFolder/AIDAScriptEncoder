@@ -357,7 +357,7 @@
         await sleep(100);
         for (let i = 0; i < 200 && !find('sigilBusy').hidden; i++) await sleep(100);
         const label = find('sigilLayoutLabel').textContent, changed = find('sigilPreview').querySelector('svg')?.innerHTML != before;
-        const ok = groups == 2 && label == 'Layout 2' && changed && page.eval('worker') != null && sigilErrors.length == 0;
+        const ok = groups == 2 && label.startsWith('Layout 2 /') && changed && page.eval('worker') != null && sigilErrors.length == 0;
         return [ok, `${groups} sigils, ${label}${changed ? '' : ' (unchanged)'}${sigilErrors.length ? ', ' + sigilErrors[0] : ''}`];
       });
 

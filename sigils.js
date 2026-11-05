@@ -41,6 +41,8 @@ let made = { key: null, sigils: [] };  // the sigils for the text and layout the
 let layout = 0;                        // which layout is shown (0: the first, see SigilLayouts)
 let noMore = false;                    // (no layout after this one)
 let asked = 0;                         // (the layout last asked for, while it's worked out)
+let total = null;                      // how many layouts the text has (null: still counting)
+let counter = null, counting = null;   // (the worker counting them, and for which text)
 const keptOnPage = new Map();          // (each line's layouts, without a worker)
 
 // Work out the sigils for the text in `layout` (asked: `wanted`, a layout that may not exist)
@@ -88,12 +90,65 @@ function workOut(wanted = layout){
   }
 }
 
-// ‹ Layout n ›: step through the layouts (see SigilLayouts); a new text starts at the first
+// Count the text's layouts, in a worker of its own (it can take a while for a long sentence, and
+// shouldn't hold up the drawing); a new text stops the count for the old one. Without workers (as
+// when the page is opened straight from a file), it's counted on the page, a little at a time.
+function countLayouts(){
+  const lines = input.value.split('\n'), key = JSON.stringify(lines);
+  if (key == counting) return;
+  counting = key;
+  total = null;
+  counter?.terminate();
+  counter = null;
+  const counted = n => {
+    if (key != counting) return;
+    total = Math.max(1, n);
+    showLayout();
+  };
+  if (!onPage) {
+    try {
+      counter = new Worker('sigil-worker.js');
+      counter.onmessage = ({ data }) => { if (data.id == key) counted(data.total); };
+      counter.onerror = event => { event.preventDefault(); counter = null; countOnPage(key, lines, counted); };
+      counter.postMessage({ id: key, lines, count: true });
+    } catch {
+      counter = null;
+    }
+  }
+  if (!counter) countOnPage(key, lines, counted);
+  showLayout();
+}
+
+// (on the page: a few milliseconds' work at a time, so it stays responsive)
+function countOnPage(key, lines, counted){
+  const layoutsOf = line => {
+    if (!keptOnPage.has(line)) keptOnPage.set(line, new SigilLayouts(line));
+    return keptOnPage.get(line);
+  };
+  const tick = () => {
+    if (key != counting) return;   // (the text changed)
+    const end = performance.now() + 15;
+    while (performance.now() < end) {
+      const left = lines.find(line => !layoutsOf(line).done);
+      if (left === undefined) {
+        counted(Math.max(0, ...lines.map(line => layoutsOf(line).found.length)));
+        return;
+      }
+      layoutsOf(left).step();
+    }
+    setTimeout(tick, 0);
+  };
+  setTimeout(tick, 0);
+}
+
+// ‹ Layout n / total ›: step through the layouts (see SigilLayouts); a new text starts at the first
 function showLayout(){
-  byId('sigilLayoutLabel').textContent = `Layout ${layout + 1}`;
+  const last = noMore || (total != null && layout + 1 >= total);
+  byId('sigilLayoutLabel').textContent = `Layout ${layout + 1} / ${total ?? '…'}`;
+  byId('sigilLayoutLabel').title = total == null ? 'Counting the layouts…' : '';
   byId('sigilLayoutPrev').disabled = layout == 0;
-  byId('sigilLayoutNext').disabled = noMore;
-  byId('sigilLayoutNext').title = noMore ? 'No more layouts' : 'Try another layout';
+  byId('sigilLayoutNext').disabled = last;
+  byId('sigilLayoutNext').title = last ? 'No more layouts' : 'Try another layout';
 }
 byId('sigilLayoutPrev').onclick = () => workOut(Math.max(0, asked - 1));
 byId('sigilLayoutNext').onclick = () => workOut(asked + 1);
@@ -102,7 +157,7 @@ byId('sigilLayoutNext').onclick = () => workOut(asked + 1);
 let typingTimer = null;
 input.addEventListener('input', () => {
   clearTimeout(typingTimer);
-  typingTimer = setTimeout(() => { layout = 0; noMore = false; workOut(0); }, 250);
+  typingTimer = setTimeout(() => { layout = 0; noMore = false; countLayouts(); workOut(0); }, 250);
 });
 
 
@@ -357,4 +412,5 @@ settingsBox.addEventListener('toggle', () => {
 });
 
 restore();
+countLayouts();
 workOut();

@@ -498,7 +498,9 @@ function sigilOf(text, { spread = 0.7, choices = null } = {}){
 
 // Different layouts of a sentence, one at a time: layout(0) is sigilOf's, and each next one the next
 // different one found by changing as little as can be (one word's place or way of breaking first,
-// then two...). layout(n) is null once there are no more. They're kept, so stepping back is quick.
+// then two...). layout(n) is null once there are no more (at most MAX_LAYOUTS). They're kept, so
+// stepping back is quick.
+const MAX_LAYOUTS = 13;
 class SigilLayouts {
   constructor(text, spread = 0.7){
     this.text = text;
@@ -526,17 +528,21 @@ class SigilLayouts {
     }
   }
   layout(n){
-    while (this.found.length <= n) {
-      const next = this.choices.next();
-      if (next.done) return null;
-      const sigil = sigilOf(this.text, { spread: this.spread, choices: next.value });
-      if (!sigil) continue;
-      const key = JSON.stringify(sigil.lines.map(l => l.flat().map(Math.round)).sort());
-      if (this.seen.has(key)) continue;   // (the same as one found already)
-      this.seen.add(key);
-      this.found.push(sigil);
-    }
-    return this.found[n];
+    if (n >= MAX_LAYOUTS) return null;
+    while (this.found.length <= n && !this.done) this.step();
+    return this.found[n] ?? null;
+  }
+  // Try the next set of choices (a little work at a time; `done` once there's nothing left to try)
+  step(){
+    if (this.done) return;
+    const next = this.found.length < MAX_LAYOUTS ? this.choices.next() : { done: true };
+    if (next.done) { this.done = true; return; }
+    const sigil = sigilOf(this.text, { spread: this.spread, choices: next.value });
+    if (!sigil) return;
+    const key = JSON.stringify(sigil.lines.map(l => l.flat().map(Math.round)).sort());
+    if (this.seen.has(key)) return;   // (the same as one found already)
+    this.seen.add(key);
+    this.found.push(sigil);
   }
 }
 
@@ -552,4 +558,17 @@ function sigilsInLayout(lines, n, kept){
     return sigil ?? layouts.found.at(-1) ?? null;
   });
   return { sigils, more };
+}
+
+// How many layouts a text has (its line with the most; at most MAX_LAYOUTS). Slow for a long
+// sentence: it finds them all.
+function layoutCount(lines, kept){
+  let most = 0;
+  for (const line of lines) {
+    if (!kept.has(line)) kept.set(line, new SigilLayouts(line));
+    const layouts = kept.get(line);
+    while (!layouts.done) layouts.step();
+    most = Math.max(most, layouts.found.length);
+  }
+  return most;
 }

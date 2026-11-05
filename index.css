@@ -102,6 +102,7 @@ summary:hover { color: var(--accent) !important; }
 .compact-hint { border-left: 3px solid var(--accent); }
 #zoomReset { min-width: 4rem; }   /* room for "400%" without the buttons shifting */
 .layout-label { min-width: 6.5rem; opacity: 1 !important; }   /* room for "Layout 8 / 8"; a label, so not greyed out */
+#sigilLayoutLabel { min-width: 7.75rem; }   /* room for "Layout 13 / 13", so the buttons don't move while it counts */
 
 /* Large screens: text and settings on the left, the preview on the right. The page gets wider to
    fit both, and the preview stays in view while scrolling (a big drawing scrolls inside it). */
