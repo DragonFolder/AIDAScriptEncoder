@@ -340,7 +340,7 @@
 
       await step('no errors on the page', () => [errors.length == 0, errors.slice(0, 2).join('; ')]);
 
-      await step('the Sigils page draws a sigil per line, in the background', async () => {
+      await step('the Sigils page draws a sigil per line, in the background, in another layout on ›', async () => {
         frame.src = '../sigils.html?test=' + Date.now();
         await new Promise(resolve => frame.onload = resolve);
         const page = frame.contentWindow, find = id => page.document.getElementById(id);
@@ -351,9 +351,14 @@
         await sleep(400);
         for (let i = 0; i < 200 && !find('sigilBusy').hidden; i++) await sleep(100);
         const svg = find('sigilPreview').querySelector('svg');
-        const groups = svg ? svg.querySelectorAll(':scope > g').length : 0;
-        const ok = groups == 2 && page.eval('worker') != null && sigilErrors.length == 0;
-        return [ok, `${groups} sigils${sigilErrors.length ? ', ' + sigilErrors[0] : ''}`];
+        const groups = svg ? svg.querySelectorAll(':scope > g:not([class])').length : 0;   // (not the pointing layers)
+        const before = svg?.innerHTML;
+        find('sigilLayoutNext').click();   // ‹ Layout ›: another layout
+        await sleep(100);
+        for (let i = 0; i < 200 && !find('sigilBusy').hidden; i++) await sleep(100);
+        const label = find('sigilLayoutLabel').textContent, changed = find('sigilPreview').querySelector('svg')?.innerHTML != before;
+        const ok = groups == 2 && label == 'Layout 2' && changed && page.eval('worker') != null && sigilErrors.length == 0;
+        return [ok, `${groups} sigils, ${label}${changed ? '' : ' (unchanged)'}${sigilErrors.length ? ', ' + sigilErrors[0] : ''}`];
       });
 
       restoreSaved();

@@ -3,7 +3,7 @@
 //
 // The sigils are worked out in a background worker (sigil-worker.js), so the page stays
 // responsive with long text; without a worker (some browsers don't allow one for a page opened
-// straight from a file), on the page. They're kept for the text and spread they were made for, so
+// straight from a file), on the page. They're kept for the text and layout they were made for, so
 // changing a color or the size only draws them again.
 //
 // The settings are remembered for the next visit; the text isn't, and the downloads don't carry
@@ -14,13 +14,12 @@ const byId = id => document.getElementById(id);
 const NS = 'http://www.w3.org/2000/svg';
 const input = byId('sigilText');
 const preview = byId('sigilPreview');
-const SETTINGS = ['setSpread', 'setSigilSize', 'setSigilLine', 'setSigilBg', 'setSigilTransparent', 'setSigilMarks', 'setSigilOutline', 'setSigilGuides'];
+const SETTINGS = ['setSigilSize', 'setSigilLine', 'setSigilBg', 'setSigilTransparent', 'setSigilMarks', 'setSigilOutline', 'setSigilGuides'];
 const SETTINGS_KEY = 'aidascript.sigilSettings';
 
 function settings(){
   const size = Number(byId('setSigilSize').value);
   return {
-    spread: Number(byId('setSpread').value) / 100,
     size: Number.isFinite(size) && size >= 10 && size <= 200 ? size : 50,
     line: byId('setSigilLine').value,
     background: byId('setSigilBg').value,
@@ -38,48 +37,72 @@ function settings(){
 let worker = null, onPage = false;
 let request = 0;                       // the latest request: replies to older ones are dropped
 let waiting = null;                    // what to do with the reply to the latest request
-let made = { key: null, sigils: [] };  // the sigils for the text and spread they were made for
+let made = { key: null, sigils: [] };  // the sigils for the text and layout they were made for
+let layout = 0;                        // which layout is shown (0: the first, see SigilLayouts)
+let noMore = false;                    // (no layout after this one)
+let asked = 0;                         // (the layout last asked for, while it's worked out)
+const keptOnPage = new Map();          // (each line's layouts, without a worker)
 
-function workOut(){
-  const { spread } = settings();
+// Work out the sigils for the text in `layout` (asked: `wanted`, a layout that may not exist)
+function workOut(wanted = layout){
   const lines = input.value.split('\n');
-  const key = JSON.stringify([lines, spread]);
+  const key = JSON.stringify([lines, wanted]);
+  asked = wanted;
   if (key == made.key) { draw(); return; }
   const id = ++request;
   byId('sigilBusy').hidden = false;
-  const done = sigils => {
+  const done = ({ sigils, more }) => {
     if (id != request) return;
-    made = { key, sigils };
     byId('sigilBusy').hidden = true;
+    if (!more && wanted > 0) {   // (there's no such layout: stay on this one, and say so)
+      noMore = true;
+      asked = layout;
+      showLayout();
+      return;
+    }
+    layout = wanted;
+    noMore = false;
+    made = { key, sigils };
+    showLayout();
     draw();
   };
   waiting = done;
   if (!onPage && !worker) {
     try {
       worker = new Worker('sigil-worker.js');
-      worker.onmessage = ({ data }) => { if (data.id == request) waiting(data.sigils); };
+      worker.onmessage = ({ data }) => { if (data.id == request) waiting(data); };
       worker.onerror = event => {   // (it didn't start: from now on, on the page)
         event.preventDefault();
         worker = null;
         onPage = true;
-        workOut();
+        workOut(wanted);
       };
     } catch {
       onPage = true;
     }
   }
   if (worker) {
-    worker.postMessage({ id, lines, spread });
+    worker.postMessage({ id, lines, layout: wanted });
   } else {
-    setTimeout(() => done(lines.map(line => sigilOf(line, { spread }))), 20);   // (after "Drawing…" has shown)
+    setTimeout(() => done(sigilsInLayout(lines, wanted, keptOnPage)), 20);   // (after "Drawing…" has shown)
   }
 }
+
+// ‹ Layout n ›: step through the layouts (see SigilLayouts); a new text starts at the first
+function showLayout(){
+  byId('sigilLayoutLabel').textContent = `Layout ${layout + 1}`;
+  byId('sigilLayoutPrev').disabled = layout == 0;
+  byId('sigilLayoutNext').disabled = noMore;
+  byId('sigilLayoutNext').title = noMore ? 'No more layouts' : 'Try another layout';
+}
+byId('sigilLayoutPrev').onclick = () => workOut(Math.max(0, asked - 1));
+byId('sigilLayoutNext').onclick = () => workOut(asked + 1);
 
 // While typing, wait for a short pause first
 let typingTimer = null;
 input.addEventListener('input', () => {
   clearTimeout(typingTimer);
-  typingTimer = setTimeout(workOut, 250);
+  typingTimer = setTimeout(() => { layout = 0; noMore = false; workOut(0); }, 250);
 });
 
 

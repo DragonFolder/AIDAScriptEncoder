@@ -297,10 +297,13 @@ function connect(all){
 // triangle, makes one figure, and has room for both marks; failing that, the one that comes closest
 // (in that order of importance), with any loose group joined on by a stroke (see connect).
 // Returns its lines ([p, q] each), which are its first and last letter's, and how it was broken.
+// `variant`: the first (0), or the second, third... way of breaking it that's as good: for other
+// layouts (see sigilLayouts). Null if there isn't that many.
 const wordCache = new Map();
-function sigilWord(w){
-  if (wordCache.has(w)) return wordCache.get(w);
-  let chosen = null;
+function sigilWord(w, variant = 0){
+  const key = `${w}#${variant}`;
+  if (wordCache.has(key)) return wordCache.get(key);
+  let chosen = null, good = 0;
   for (const split of splits(w).slice(0, 80)) {
     const parts = split.map(p => [...p]);
     const { centres, clean } = stack(parts);
@@ -310,9 +313,11 @@ function sigilWord(w){
     const first = all.find(l => l.piece == 0 && l.ch == parts[0][0]);
     const last = all.find(l => l.piece == parts.length - 1 && l.ch == parts.at(-1).at(-1));
     const rank = (clean ? 8 : 0) + (hasTinyTriangle(all) ? 0 : 4) + (groupCount(all) == 1 ? 2 : 0) + (marks(all, first, last).clear ? 1 : 0);
+    if (rank == 15 && good++ < variant) continue;   // (an earlier variant's)
     if (!chosen || rank > chosen.rank) chosen = { rank, split, all, first, last, centres };
     if (rank == 15) break;
   }
+  if (variant > 0 && chosen?.rank != 15) { wordCache.set(key, null); return null; }
   connect(chosen.all);
   // Which letters of the word a line stands for: where its letter is in its piece (a letter used
   // twice in a piece is one line); none for a stroke that joins groups (see connect)
@@ -324,7 +329,7 @@ function sigilWord(w){
     circles: chosen.centres,   // (each piece's circle's middle: for showing the circles as a guide)
     lines: chosen.all.map(l => ({ ends: drawnPart(l), first: l === chosen.first, last: l === chosen.last, letters: lettersOf(l), piece: l.piece })),
   };
-  wordCache.set(w, result);
+  wordCache.set(key, result);
   return result;
 }
 
@@ -425,9 +430,14 @@ function sigilWords(text){
 // (words: the sentence's words, as drawn; owners: for each line, { word, letters, circle }: which word
 // it's in, which of its letters it stands for, and which circle it's on, none for a joining stroke)
 // (circles: every piece's circle's middle, for showing them as a guide; the box doesn't take them in).
-function sigilOf(text, { spread = 0.7 } = {}){
-  const words = sigilWords(text).map(sigilWord);
-  if (!words.length) return null;
+// `choices` (for other layouts, see sigilLayouts): for each word, which way of breaking it
+// (variants[k], see sigilWord) and which of its places (places[k]: 0 the best, 1 the next best...);
+// null if a word hasn't that many.
+function sigilOf(text, { spread = 0.7, choices = null } = {}){
+  const texts = sigilWords(text);
+  if (!texts.length) return null;
+  const words = texts.map((w, k) => sigilWord(w, choices?.variants[k] ?? 0));
+  if (words.some(w => !w)) return null;
   const allowed = 1 - spread;
   // (the k-th word's lines, moved; the same word twice is the same result, see sigilWord: k tells them apart)
   const moved = (k, dx, dy) => words[k].lines.map(l => ({ ...l, word: k, ends: l.ends.map(([x, y]) => [x + dx, y + dy]) }));
@@ -441,16 +451,30 @@ function sigilOf(text, { spread = 0.7 } = {}){
     for (const l of word.lines) for (const p of l.ends) mine.set(p.map(Math.round).join(), p);
     const old = figure.map(l => l.ends), oldLines = old.map(([p, q]) => segment(p, q));
     const xs = old.flat().map(p => p[0]), ys = old.flat().map(p => p[1]);
+    const place = choices?.places[k] ?? 0;
     let best = null;
+    const all = [];   // (every place tried, when not the best one is wanted)
+    const tried = new Set();
     for (const [ax, ay] of anchors.values()) for (const [mx, my] of mine.values()) {
-      const placed = moved(k, ax - mx, ay - my), added = placed.map(l => l.ends);
+      const dx = ax - mx, dy = ay - my, key = `${Math.round(dx)},${Math.round(dy)}`;
+      if (tried.has(key)) continue;   // (the same place, by another pair of ends)
+      tried.add(key);
+      const placed = moved(k, dx, dy), added = placed.map(l => l.ends);
       const px = added.flat().map(p => p[0]), py = added.flat().map(p => p[1]);
       const size = Math.max(...xs, ...px) - Math.min(...xs, ...px) + Math.max(...ys, ...py) - Math.min(...ys, ...py);
-      if (best && best.faults == 0 && size >= best.size) continue;   // (can't do better: skip the checks)
+      if (place == 0 && best && best.faults == 0 && size >= best.size) continue;   // (can't do better: skip the checks)
       const runs = added.some(([p, q]) => oldLines.some(o => runAlong(segment(p, q), o) || runAlong(o, segment(p, q))));
       const look = openness(old, added);
       const faults = (runs ? 4 : 0) + (look.smallest < SENTENCE_TRIANGLE ? 2 : 0) + (look.crossings > allowed * added.length + 1e-9 ? 1 : 0);
-      if (!best || faults < best.faults || (faults == best.faults && size < best.size)) best = { faults, size, placed, dx: ax - mx, dy: ay - my };
+      const candidate = { faults, size, placed, dx, dy };
+      if (place > 0) all.push(candidate);
+      if (!best || faults < best.faults || (faults == best.faults && size < best.size)) best = candidate;
+    }
+    if (place > 0) {
+      // (the place-th best of the places as good as the best: as few faults, the smallest first)
+      const good = all.filter(c => c.faults == best.faults).sort((a, b) => a.size - b.size);
+      if (place >= good.length) return null;
+      best = good[place];
     }
     figure = [...figure, ...best.placed];
     firstCircle.push(circles.length);
@@ -469,4 +493,63 @@ function sigilOf(text, { spread = 0.7 } = {}){
     owners: figure.map(l => ({ word: l.word, letters: l.letters, circle: l.piece >= 0 ? firstCircle[l.word] + l.piece : null })),
     box: { x, y, width: Math.max(...points.map(p => p[0])) + pad - x, height: Math.max(...points.map(p => p[1])) + pad - y },
   };
+}
+
+
+// Different layouts of a sentence, one at a time: layout(0) is sigilOf's, and each next one the next
+// different one found by changing as little as can be (one word's place or way of breaking first,
+// then two...). layout(n) is null once there are no more. They're kept, so stepping back is quick.
+class SigilLayouts {
+  constructor(text, spread = 0.7){
+    this.text = text;
+    this.spread = spread;
+    this.found = [];
+    this.seen = new Set();
+    this.words = sigilWords(text).length;
+    this.choices = this.allChoices();
+  }
+  // Every set of choices to try, from the least changed: for each word, which way of breaking it and
+  // which place (the first word has no place to choose: it's where the others join)
+  *allChoices(){
+    const n = this.words, slots = [];
+    for (let k = 0; k < n; k++) slots.push(['variants', k]);
+    for (let k = 1; k < n; k++) slots.push(['places', k]);
+    const make = changes => {
+      const choices = { variants: Array(n).fill(0), places: Array(n).fill(0) };
+      for (const [[kind, k], value] of changes) choices[kind][k] = value;
+      return choices;
+    };
+    yield make([]);
+    for (let value = 1; value <= 4; value++) for (const slot of slots) yield make([[slot, value]]);
+    for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) {
+      for (let a = 1; a <= 2; a++) for (let b = 1; b <= 2; b++) yield make([[slots[i], a], [slots[j], b]]);
+    }
+  }
+  layout(n){
+    while (this.found.length <= n) {
+      const next = this.choices.next();
+      if (next.done) return null;
+      const sigil = sigilOf(this.text, { spread: this.spread, choices: next.value });
+      if (!sigil) continue;
+      const key = JSON.stringify(sigil.lines.map(l => l.flat().map(Math.round)).sort());
+      if (this.seen.has(key)) continue;   // (the same as one found already)
+      this.seen.add(key);
+      this.found.push(sigil);
+    }
+    return this.found[n];
+  }
+}
+
+// Every line of a text in layout `n` (a line with fewer layouts in its last one), with `kept`
+// holding each line's layouts (a Map, kept between calls). Returns { sigils, more }: more is
+// false if no line had layout n.
+function sigilsInLayout(lines, n, kept){
+  let more = false;
+  const sigils = lines.map(line => {
+    if (!kept.has(line)) kept.set(line, new SigilLayouts(line));
+    const layouts = kept.get(line), sigil = layouts.layout(n);
+    if (sigil) more = true;
+    return sigil ?? layouts.found.at(-1) ?? null;
+  });
+  return { sigils, more };
 }
