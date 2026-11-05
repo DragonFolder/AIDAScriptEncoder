@@ -314,10 +314,15 @@ function sigilWord(w){
     if (rank == 15) break;
   }
   connect(chosen.all);
+  // Which letters of the word a line stands for: where its letter is in its piece (a letter used
+  // twice in a piece is one line); none for a stroke that joins groups (see connect)
+  const starts = chosen.split.map((_, k) => chosen.split.slice(0, k).join('').length);
+  const lettersOf = l => l.ch == null ? [] :
+    [...chosen.split[l.piece]].flatMap((ch, i) => ch == l.ch ? [starts[l.piece] + i] : []);
   const result = {
     pieces: chosen.split,
     circles: chosen.centres,   // (each piece's circle's middle: for showing the circles as a guide)
-    lines: chosen.all.map(l => ({ ends: drawnPart(l), first: l === chosen.first, last: l === chosen.last })),
+    lines: chosen.all.map(l => ({ ends: drawnPart(l), first: l === chosen.first, last: l === chosen.last, letters: lettersOf(l), piece: l.piece })),
   };
   wordCache.set(w, result);
   return result;
@@ -415,16 +420,22 @@ function sigilWords(text){
 // makes the figure smallest, with no line running along another, no small triangle, and at most
 // `crossings` crossings per line of the word (spread 0 to 1: from tight, 1 crossing per line, to
 // open, none). Then the dot and the crossbar (see marks).
-// Returns { lines: [[p, q], ...], dot: { at, r }, bar: [p, q], box: { x, y, width, height }, circles }
+// Returns { lines: [[p, q], ...], dot: { at, r }, bar: [p, q], box: { x, y, width, height }, circles,
+//           words, owners }
+// (words: the sentence's words, as drawn; owners: for each line, { word, letters, circle }: which word
+// it's in, which of its letters it stands for, and which circle it's on, none for a joining stroke)
 // (circles: every piece's circle's middle, for showing them as a guide; the box doesn't take them in).
 function sigilOf(text, { spread = 0.7 } = {}){
   const words = sigilWords(text).map(sigilWord);
   if (!words.length) return null;
   const allowed = 1 - spread;
-  const moved = (word, dx, dy) => word.lines.map(l => ({ ...l, ends: l.ends.map(([x, y]) => [x + dx, y + dy]) }));
-  let figure = moved(words[0], 0, 0);
+  // (the k-th word's lines, moved; the same word twice is the same result, see sigilWord: k tells them apart)
+  const moved = (k, dx, dy) => words[k].lines.map(l => ({ ...l, word: k, ends: l.ends.map(([x, y]) => [x + dx, y + dy]) }));
+  let figure = moved(0, 0, 0);
   const circles = [...words[0].circles];
-  for (const word of words.slice(1)) {
+  const firstCircle = [0];   // (where each word's circles start in `circles`)
+  for (let k = 1; k < words.length; k++) {
+    const word = words[k];
     const anchors = new Map(), mine = new Map();
     for (const l of figure) for (const p of l.ends) anchors.set(p.map(Math.round).join(), p);
     for (const l of word.lines) for (const p of l.ends) mine.set(p.map(Math.round).join(), p);
@@ -432,7 +443,7 @@ function sigilOf(text, { spread = 0.7 } = {}){
     const xs = old.flat().map(p => p[0]), ys = old.flat().map(p => p[1]);
     let best = null;
     for (const [ax, ay] of anchors.values()) for (const [mx, my] of mine.values()) {
-      const placed = moved(word, ax - mx, ay - my), added = placed.map(l => l.ends);
+      const placed = moved(k, ax - mx, ay - my), added = placed.map(l => l.ends);
       const px = added.flat().map(p => p[0]), py = added.flat().map(p => p[1]);
       const size = Math.max(...xs, ...px) - Math.min(...xs, ...px) + Math.max(...ys, ...py) - Math.min(...ys, ...py);
       if (best && best.faults == 0 && size >= best.size) continue;   // (can't do better: skip the checks)
@@ -442,6 +453,7 @@ function sigilOf(text, { spread = 0.7 } = {}){
       if (!best || faults < best.faults || (faults == best.faults && size < best.size)) best = { faults, size, placed, dx: ax - mx, dy: ay - my };
     }
     figure = [...figure, ...best.placed];
+    firstCircle.push(circles.length);
     circles.push(...word.circles.map(([x, y]) => [x + best.dx, y + best.dy]));
   }
   const all = figure.map(l => ({ line: segment(...l.ends), t0: 0, t1: 1 }));
@@ -453,6 +465,8 @@ function sigilOf(text, { spread = 0.7 } = {}){
   const x = Math.min(...points.map(p => p[0])) - pad, y = Math.min(...points.map(p => p[1])) - pad;
   return {
     lines: figure.map(l => l.ends), dot: marked.dot, bar: marked.bar, circles,
+    words: sigilWords(text),
+    owners: figure.map(l => ({ word: l.word, letters: l.letters, circle: l.piece >= 0 ? firstCircle[l.word] + l.piece : null })),
     box: { x, y, width: Math.max(...points.map(p => p[0])) + pad - x, height: Math.max(...points.map(p => p[1])) + pad - y },
   };
 }

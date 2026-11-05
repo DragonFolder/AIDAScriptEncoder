@@ -90,20 +90,23 @@ input.addEventListener('input', () => {
 let svg = null;   // the drawing now in the preview (for the downloads)
 
 // The sigils side by side (sigil sizes, in pixels for a circle of radius SIGIL.R), scaled to the size
-// asked for, in the colors asked for, as SVG text. With `guides`, each circle's octagon is drawn
-// faintly behind (the picture grows to show them whole): for the preview only, never downloaded.
-// Null if there's nothing to draw.
-function picture(guides){
+// asked for, in the colors asked for, as SVG text. Null if there's nothing to draw.
+// For the preview only, never downloaded:
+// - with `guides`, each circle's octagon is drawn faintly behind (the picture grows to show them whole);
+// - with `pointing`, every line gets a wider, invisible copy on top, to point at (see showLetters).
+function picture(guides, pointing = false){
   const { size, line, background, transparent, marks, outline } = settings();
   const sigils = made.sigils.filter(s => s);
   if (!sigils.length) return null;
   const gap = SIGIL.R, pad = SIGIL.R * 0.4;
   const height = Math.max(...sigils.map(s => s.box.height));
   const octagon = ([cx, cy]) => SIGIL_POINTS.map((_, i) => [cx + SIGIL.R * Math.cos(pointAngle(i)), cy + SIGIL.R * Math.sin(pointAngle(i))]);
-  let x = pad, body = '', guide = '';
+  let x = pad, body = '', guide = '', hits = '';
   const corners = [];   // (the guides' corners, where they're drawn)
-  for (const s of sigils) {
+  sigils.forEach((s, k) => {
     const dx = x - s.box.x, dy = pad + (height - s.box.height) / 2 - s.box.y;
+    if (pointing) hits += `<g transform="translate(${dx},${dy})">` + s.lines.map(([[x1, y1], [x2, y2]], i) =>
+      `<line class="hit" data-sigil="${k}" data-line="${i}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join('') + '</g>';
     const lines = s.lines.map(([[x1, y1], [x2, y2]]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join('');
     const [[b1, b2], [b3, b4]] = s.bar;
     // (the dot can get a thin edge in the background color, to stand apart from lines near it)
@@ -121,7 +124,7 @@ function picture(guides){
     body += `<g transform="translate(${dx},${dy})">` +
       `<g stroke="${line}" stroke-width="${SIGIL.LINE}" stroke-linecap="round">${lines}</g>${marked}</g>`;
     x += s.box.width + gap;
-  }
+  });
   const width = x - gap + pad, full = height + 2 * pad, scale = size / SIGIL.R;
   const room = 4;
   const x0 = Math.min(0, ...corners.map(p => p[0] - room)), y0 = Math.min(0, ...corners.map(p => p[1] - room));
@@ -129,12 +132,76 @@ function picture(guides){
   const back = transparent ? '' : `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="${background}"/>`;
   const guideLayer = guide && `<g class="guide" fill="none" stroke="${line}" stroke-opacity="0.3" stroke-width="1.5" stroke-dasharray="4 4">${guide}</g>`;
   return `<svg xmlns="${NS}" width="${(x1 - x0) * scale}" height="${(y1 - y0) * scale}" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}">` +
-         `${back}${guideLayer}${body}</svg>`;
+         `${back}${guideLayer}${body}` +
+         (pointing ? `<g class="pointing"></g><g class="hits" stroke="transparent" stroke-width="16" stroke-linecap="round">${hits}</g>` : '') +
+         `</svg>`;
 }
+
+// Pointing at a line (or tapping it) shows which letters it stands for: the line in the accent
+// color, and its word, with those letters marked (a letter used twice in a piece is one line; a
+// stroke that only joins two groups stands for none)
+const letterLabel = document.createElement('div');
+letterLabel.className = 'sigil-label';
+document.body.append(letterLabel);
+let pointedAt = null;
+function showLetters(hit, event){
+  const sigil = made.sigils.filter(s => s)[Number(hit.dataset.sigil)], i = Number(hit.dataset.line);
+  if (!sigil) return;
+  const { word, letters } = sigil.owners[i];
+  if (pointedAt !== hit) {
+    pointedAt = hit;
+    const layer = svg.querySelector('.pointing');
+    layer.replaceChildren();
+    const copy = hit.cloneNode();
+    copy.removeAttribute('class');
+    copy.style.stroke = 'var(--accent)';   // (as a style: an SVG attribute can't use a CSS variable)
+    copy.setAttribute('stroke-width', SIGIL.LINE + 1);
+    copy.setAttribute('stroke-linecap', 'round');
+    const moved = document.createElementNS(NS, 'g');
+    moved.setAttribute('transform', hit.parentNode.getAttribute('transform'));
+    // (and the octagon of the circle it's on, dashed, behind it)
+    const circle = sigil.owners[i].circle;
+    if (circle != null) {
+      const [cx, cy] = sigil.circles[circle];
+      const octagon = document.createElementNS(NS, 'polygon');
+      octagon.setAttribute('points', SIGIL_POINTS.map((_, k) =>
+        `${cx + SIGIL.R * Math.cos(pointAngle(k))},${cy + SIGIL.R * Math.sin(pointAngle(k))}`).join(' '));
+      octagon.setAttribute('fill', 'none');
+      octagon.setAttribute('stroke-width', '2');
+      octagon.setAttribute('stroke-dasharray', '5 4');
+      octagon.style.stroke = 'var(--accent)';
+      moved.append(octagon);
+    }
+    moved.append(copy);
+    layer.append(moved);
+    const text = sigil.words[word];
+    letterLabel.innerHTML = letters.length
+      ? [...text].map((ch, k) => letters.includes(k) ? `<mark>${ch}</mark>` : ch).join('')
+      : `<span class="note">joins ${text} on</span>`;
+  }
+  letterLabel.style.display = 'block';
+  letterLabel.style.left = `${event.clientX + 14}px`;
+  letterLabel.style.top = `${event.clientY + 14}px`;
+}
+function hideLetters(){
+  pointedAt = null;
+  letterLabel.style.display = 'none';
+  svg?.querySelector('.pointing')?.replaceChildren();
+}
+preview.addEventListener('pointermove', event => {
+  const hit = event.target.closest?.('.hit');
+  if (hit) showLetters(hit, event); else hideLetters();
+});
+preview.addEventListener('pointerleave', event => { if (event.pointerType == 'mouse') hideLetters(); });
+preview.addEventListener('click', event => {   // (a tap, on a touch screen)
+  const hit = event.target.closest?.('.hit');
+  if (hit) showLetters(hit, event); else hideLetters();
+});
 
 // The preview: the picture, with the guides if asked for
 function draw(){
-  const text = picture(byId('setSigilGuides').checked);
+  hideLetters();
+  const text = picture(byId('setSigilGuides').checked, true);
   preview.replaceChildren();
   svg = null;
   if (!text) {
