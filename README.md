@@ -16,7 +16,7 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 - Long lines wrap into new columns, keeping words whole
 - Settings for size, spacing, colors and layout
 - **How to read AIDAScript**, at the bottom of the page: every letter, digit and punctuation mark (click a letter or digit to type it)
-- An experimental **compact** layout that packs the text into a tight blob, guided by a shape of your choice
+- A **compact** layout that packs the text into a tight blob, guided by a shape of your choice
 
 ## How AIDAScript works
 
@@ -90,7 +90,7 @@ Punctuation marks are small shapes that stand apart and never touch anything. Qu
 | Line size | 20 px | Length of one stroke; sets the size of everything |
 | Line spacing | 10 px | Gap between columns (rectangle only) |
 | Maximum height | 400 px | How tall a column may get before wrapping (rectangle only) |
-| Shape | Rectangle | **Rectangle**: plain columns. **Compact** (experimental): packs the text as tightly as possible, with overlapping columns that never touch |
+| Shape | Rectangle | **Rectangle**: plain columns. **Compact**: packs the text as tightly as possible, with overlapping columns that never touch |
 | Guide shape | Circle | Compact only: the shape to aim for: circle, rectangle, hexagon, diamond or triangle |
 | Width : height | 1 : 1 | Compact only: stretches the guide shape (a circle becomes an oval, the rectangle starts out square) |
 | Rotation | 0° | Compact only: turns the guide shape, up to 180° |

@@ -79,7 +79,6 @@ function readSettings(){
   show('setFrameWidth', framed);
   byId('setFrameColor').classList.toggle('d-none', CONFIG.frameSameColor);
   byId('setBgColor').classList.toggle('d-none', CONFIG.transparent);
-  byId('compactBadge').hidden = !compact;
   byId(compact ? 'quickCompact' : 'quickRectangle').checked = true;
   if (compact) compactHintDone();   // (tried it: no need to suggest it any more)
   showCompactHint(!compact);

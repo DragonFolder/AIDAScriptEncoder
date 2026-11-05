@@ -10,7 +10,7 @@
 //   2. Shapes          – what each character looks like
 //   3. Spacing rules   – how far below the previous character each one goes
 //   4. Layout          – placing a whole line, and wrapping long lines
-//   5. Compact layout  – the experimental compact shape
+//   5. Compact layout  – the compact shape
 //   Strokes           – every line of a character
 //
 // Units: the shape and spacing code works in "lineSizes" (1 = the length of one
@@ -590,7 +590,7 @@ function wrapLine(line){
 
 
 // =============================================================================
-// 5. Compact layout (experimental)
+// 5. Compact layout
 //
 // The text is packed as tightly as possible. A guide shape (CONFIG.guideShape, see
 // GUIDE_SHAPES) sets how tall each column may be. The code speaks of "the circle" and its
