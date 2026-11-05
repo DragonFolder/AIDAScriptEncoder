@@ -10,7 +10,7 @@
 //   2. Shapes          – what each character looks like
 //   3. Spacing rules   – how far below the previous character each one goes
 //   4. Layout          – placing a whole line, and wrapping long lines
-//   5. Compact layout  – the experimental compact shape
+//   5. Compact layout  – the compact shape
 //   Strokes           – every line of a character
 //
 // Units: the shape and spacing code works in "lineSizes" (1 = the length of one
@@ -174,9 +174,10 @@ const SAME_MARK = {
   '«': '“', '»': '”', '‹': '‘', '›': '’',               // (guillemets draw like quote marks)
 };
 function drawableText(text){
-  // (every digit and quote mark is in PUNCTUATION; the stand-ins are never taken as typed)
+  // (every digit and quote mark is in PUNCTUATION; the stand-ins, from the Private Use Area, are
+  // never taken as typed: see TICKED, and the decoder's OLD_MARKS)
   const drawn = ch => ch == ' ' || ch == '\n' || Object.hasOwn(LETTERS, ch.toLowerCase()) ||
-                      (isPunctuation(ch) && !Object.hasOwn(TICKED, ch));
+                      (isPunctuation(ch) && !/[-]/.test(ch));
   const kept = [...text.normalize('NFD')]
     .filter(ch => !/\p{M}/u.test(ch))           // (the accents, split off by NFD)
     .flatMap(ch => [...(SAME_MARK[ch] ?? ch)])
@@ -590,7 +591,7 @@ function wrapLine(line){
 
 
 // =============================================================================
-// 5. Compact layout (experimental)
+// 5. Compact layout
 //
 // The text is packed as tightly as possible. A guide shape (CONFIG.guideShape, see
 // GUIDE_SHAPES) sets how tall each column may be. The code speaks of "the circle" and its

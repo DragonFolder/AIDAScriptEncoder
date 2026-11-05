@@ -15,6 +15,7 @@
 //   8. Downloads       – SVG and PNG buttons, Copy image
 //   9. Sharing         – Copy link, and the settings kept between visits
 //  10. Alphabet        – the "How to read AIDAScript" letters
+//  11. Reading a picture – "Read a picture": a picture back into text (with decode.js)
 // (sections 2 to 5 are in layout.js)
 // =============================================================================
 
@@ -79,7 +80,6 @@ function readSettings(){
   show('setFrameWidth', framed);
   byId('setFrameColor').classList.toggle('d-none', CONFIG.frameSameColor);
   byId('setBgColor').classList.toggle('d-none', CONFIG.transparent);
-  byId('compactBadge').hidden = !compact;
   byId(compact ? 'quickCompact' : 'quickRectangle').checked = true;
   if (compact) compactHintDone();   // (tried it: no need to suggest it any more)
   showCompactHint(!compact);
@@ -1195,6 +1195,213 @@ function showAlphabet(){
     byId('alphabetPunctuation').append(tile);
   }
 }
+
+
+
+// =============================================================================
+// 11. Reading a picture
+// =============================================================================
+
+// "Read a picture": a picture (chosen, dropped, pasted, or the preview itself) is turned into
+// pixels here and read in a background worker (decode-worker.js), with decode.js. Without a
+// worker (some browsers don't allow one for a page opened straight from a file), it's read on
+// the page, which then stops responding until it's done.
+
+// A bigger picture is made smaller first: it reads just as well, and much faster
+const MAX_DECODE_PIXELS = 6_000_000;
+
+let decodeWorker = null;
+let decodeOnPage = false;    // (no worker)
+let decodeRequest = 0;       // the latest picture asked for: replies to older ones are dropped
+let decodeImageUrl = null;
+
+const escapeHtml = text => text.replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+
+function showDecodeStatus(html, kind = 'secondary'){
+  const status = byId('decodeStatus');
+  status.className = `small mb-2 text-${kind == 'secondary' ? 'body-secondary' : kind}`;
+  status.innerHTML = html;
+}
+
+// Read the picture in `blob` (any image the browser can open, SVG too)
+function readPicture(blob){
+  byId('decoder').open = true;
+  byId('decodeResult').hidden = false;
+  byId('decodeText').value = '';
+  byId('decodeOthers').textContent = '';
+  if (decodeImageUrl) URL.revokeObjectURL(decodeImageUrl);
+  decodeImageUrl = URL.createObjectURL(blob);
+  byId('decodeImage').src = decodeImageUrl;
+  showDecodeStatus('Opening the picture…');
+
+  const request = ++decodeRequest;
+  const img = new Image();
+  img.onload = () => {
+    if (request != decodeRequest) return;
+    const shrink = Math.min(1, Math.sqrt(MAX_DECODE_PIXELS / (img.naturalWidth * img.naturalHeight)));
+    const width = Math.max(1, Math.round(img.naturalWidth * shrink));
+    const height = Math.max(1, Math.round(img.naturalHeight * shrink));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(img, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height);
+    showDecodeStatus('Reading… <span class="spinner-border spinner-border-sm ms-1" aria-hidden="true"></span>');
+    decodePixels(request, pixels.data, width, height);
+  };
+  img.onerror = () => {
+    if (request == decodeRequest) showDecodeStatus("That file isn't a picture this browser can open.", 'danger');
+  };
+  img.src = decodeImageUrl;
+}
+
+// Read the pixels (RGBA), in the worker if there is one
+function decodePixels(request, rgba, width, height){
+  if (!decodeOnPage && !decodeWorker) {
+    try {
+      decodeWorker = new Worker('decode-worker.js');
+      decodeWorker.onmessage = ({ data }) => {
+        if (data.id != decodeRequest) return;   // (a picture no longer wanted)
+        if (data.way) showDecodeWay(data.way);
+        else if (data.error) showDecodeStatus('Something went wrong reading this picture.', 'danger');
+        else showDecodeResult(data.result);
+      };
+      decodeWorker.onerror = event => {   // (the worker didn't start: read on the page from now on)
+        event.preventDefault();
+        decodeWorker = null;
+        decodeOnPage = true;
+        decodePixels(request, rgba, width, height);
+      };
+    } catch {
+      decodeOnPage = true;
+    }
+  }
+  if (decodeWorker) {
+    decodeWorker.postMessage({ id: request, rgba: rgba.buffer.slice(0), width, height });
+    return;
+  }
+  setTimeout(() => {   // (after "Reading…" has shown)
+    if (request != decodeRequest) return;
+    showDecodeResult(decodeAnyHow(inkMask(rgba, width, height), width, height));
+  }, 30);
+}
+
+// While reading: which way it's trying (see decodeAnyHow)
+const DECODE_WAYS = {
+  today: 'Reading…',
+  old: 'Reading… (trying the older punctuation marks)',
+  loose: 'Reading… (trying looser spacing, as older versions and other encoders draw it: this can take half a minute)',
+};
+function showDecodeWay(way){
+  showDecodeStatus(escapeHtml(DECODE_WAYS[way]) + ' <span class="spinner-border spinner-border-sm ms-1" aria-hidden="true"></span>');
+}
+
+// Show what was read (see decodePicture)
+function showDecodeResult(result){
+  const { text, unread, skipped, timedOut } = result;
+  const columns = result.columns.filter(column => !column.skipped);   // (the text's columns)
+  byId('decodeText').value = text;
+  if (result.lineSize == null || result.columns.length == 0) {
+    showDecodeStatus('No drawing found in this picture.', 'warning');
+    return;
+  }
+  if (columns.length == 0) {
+    showDecodeStatus('Couldn’t find AIDAScript in the Rectangle shape in this picture.', 'warning');
+    return;
+  }
+  const notes = [];
+  const allRead = unread == 0 && !timedOut;
+  if (allRead) {
+    notes.push(`✓ Read ${columns.length == 1 ? 'the column' : `all ${columns.length} columns`}.`);
+  } else {
+    const which = unread == columns.length || unread == 0 ? 'it' : `${unread} of the ${columns.length} columns`;
+    notes.push(`Couldn't read ${which} all the way${timedOut ? ' (it stopped trying after a while)' : ''}` +
+               ': the text shows how far it got, and … where it stopped.');
+    notes.push('Some marks may be drawn differently from the ones in “How to read AIDAScript” below.');
+    notes.push('It reads the Rectangle shape, as drawn here: not yet the Compact shape or frames, nor pictures that ' +
+               'have been stretched, turned or blurred.');
+  }
+  const ways = new Set(columns.map(column => column.way));
+  if (ways.has('old') || ways.has('loose')) {
+    notes.push('This looks like an older picture: it was read with the older punctuation marks (+ for a period, / for a comma, — for an apostrophe, = for a quote mark, ‡ for an exclamation mark).');
+  }
+  if (ways.has('loose')) {
+    const all = columns.every(c => c.way == 'loose');
+    notes.push(`${all ? 'It doesn’t' : 'Some columns don’t'} follow today’s spacing, and ${all ? 'was' : 'were'} read loosely: ` +
+               'a letter or a space may be wrong.');
+  }
+  if (skipped) notes.push(`Left out ${skipped == 1 ? 'a part' : `${skipped} parts`} of the picture that ` +
+                          `${skipped == 1 ? 'isn’t' : 'aren’t'} AIDAScript in the Rectangle shape (a drawing beside the text, say).`);
+  if (columns.length > 1) notes.push('Where a column ends, it guesses whether the text had a line break there or carried on.');
+  showDecodeStatus(notes.map(escapeHtml).join('<br>'), allRead ? 'success' : 'warning');
+
+  // Columns that could also say something else (drawn exactly the same)
+  const others = columns.map((column, k) => [k, column.readings.slice(1)]).filter(([, more]) => more.length);
+  byId('decodeOthers').textContent = others.map(([k, more]) =>
+    `${columns.length > 1 ? `Column ${k + 1}` : 'It'} could also say: ${more.map(t => `“${t}”`).join(' or ')}`).join(' · ');
+}
+
+byId('decodePick').onclick = () => byId('decodeFile').click();
+byId('decodeFile').onchange = () => {
+  const file = byId('decodeFile').files[0];
+  if (file) readPicture(file);
+  byId('decodeFile').value = '';   // (so the same file can be chosen again)
+};
+
+// The drawing in the preview, as an SVG (as if downloaded)
+byId('decodePreview').onclick = () => {
+  if (CONFIG.shape == 'compact') {
+    byId('decodeResult').hidden = false;
+    byId('decodeText').value = '';
+    byId('decodeOthers').textContent = '';
+    showDecodeStatus('The Compact shape can’t be read yet: switch the preview to Rectangle first.', 'warning');
+    return;
+  }
+  readPicture(new Blob([svgString()], { type: 'image/svg+xml' }));
+};
+
+// Dropping a picture anywhere on the card
+const decoderCard = byId('decoder');
+decoderCard.addEventListener('dragover', event => {
+  if (![...event.dataTransfer.items].some(item => item.kind == 'file')) return;
+  event.preventDefault();
+  decoderCard.classList.add('dragging');
+});
+decoderCard.addEventListener('dragleave', event => {
+  if (!decoderCard.contains(event.relatedTarget)) decoderCard.classList.remove('dragging');
+});
+decoderCard.addEventListener('drop', event => {
+  event.preventDefault();
+  decoderCard.classList.remove('dragging');
+  const file = [...event.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (file) readPicture(file);
+});
+
+// Pasting a picture anywhere on the page (text pastes as usual)
+document.addEventListener('paste', event => {
+  const item = [...(event.clipboardData?.items ?? [])].find(i => i.kind == 'file' && i.type.startsWith('image/'));
+  if (!item) return;
+  event.preventDefault();
+  readPicture(item.getAsFile());
+  byId('decoder').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+byId('decodeUse').onclick = () => {
+  input.value = byId('decodeText').value;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.focus();
+  input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+byId('decodeCopy').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(byId('decodeText').value);
+    flash(byId('decodeCopy'), 'Copied!');
+  } catch {
+    flash(byId('decodeCopy'), "Couldn't copy");
+  }
+};
+
 
 showAlphabet();
 restore();

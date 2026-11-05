@@ -77,11 +77,11 @@
                 <div class="row g-3 d-none" data-pane="shape">
                   <div class="col-6 col-md-3" data-setting>
                     <label for="setShape" class="form-label small">
-                      Shape <span id="compactBadge" class="badge text-bg-warning ms-1" title="The compact shape is an experimental feature: results and speed may change" hidden>Experimental</span> <span class="tip" tabindex="0" role="button" aria-label="About Shape: Rectangle: plain columns. Compact: a tight, overlapping blob." data-tip="Rectangle: plain columns. Compact: a tight, overlapping blob.">?</span>
+                      Shape <span class="tip" tabindex="0" role="button" aria-label="About Shape: Rectangle: plain columns. Compact: a tight, overlapping blob." data-tip="Rectangle: plain columns. Compact: a tight, overlapping blob.">?</span>
                     </label>
                     <select id="setShape" class="form-select form-select-sm">
                       <option value="rectangle" selected>Rectangle</option>
-                      <option value="compact">Compact (experimental)</option>
+                      <option value="compact">Compact</option>
                     </select>
                   </div>
                   <div class="col-6 col-md-3" data-setting>
@@ -233,6 +233,35 @@
 
     </div>
 
+    <!-- Reading a picture back into text (see "11. Reading a picture" in index.js, and decode.js) -->
+    <details id="decoder" class="card shadow-sm mt-4 fold-card">
+      <summary class="card-header fw-semibold">Read a picture <span class="badge text-bg-warning ms-1">Experimental</span></summary>
+      <div class="card-body">
+        <p class="mb-3">Turns a picture of AIDAScript back into text: a PNG or SVG downloaded from here, a screenshot of one,
+          or one someone sent you. For now it reads the <strong>Rectangle</strong> shape, in any size and colors.</p>
+        <div id="decodeDrop" class="decode-drop d-flex flex-wrap align-items-center gap-2">
+          <input id="decodeFile" type="file" accept="image/*" hidden>
+          <button id="decodePick" type="button" class="btn btn-sm btn-primary">Choose a picture</button>
+          <button id="decodePreview" type="button" class="btn btn-sm btn-outline-primary" title="Read the drawing in the preview above">Read the preview</button>
+          <span class="small text-body-secondary">or drop a picture here, or paste one (Ctrl+V)</span>
+        </div>
+        <div id="decodeResult" class="row g-3 mt-1" hidden>
+          <div class="col-md-5">
+            <img id="decodeImage" class="decode-image" alt="The picture being read">
+          </div>
+          <div class="col-md-7">
+            <div id="decodeStatus" class="small mb-2" role="status" aria-live="polite"></div>
+            <textarea id="decodeText" class="form-control mb-2" rows="4" readonly aria-label="The text read from the picture"></textarea>
+            <div id="decodeOthers" class="small text-body-secondary mb-2"></div>
+            <div class="d-flex flex-wrap gap-2">
+              <button id="decodeUse" type="button" class="btn btn-sm btn-outline-primary">Put it in the text box</button>
+              <button id="decodeCopy" type="button" class="btn btn-sm btn-outline-primary">Copy text</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
     <!-- How to read the script: the letters are drawn from the LETTERS table (see showAlphabet in index.js) -->
     <details id="alphabet" class="card shadow-sm mt-4 alphabet">
       <summary class="card-header fw-semibold">How to read AIDAScript</summary>
@@ -255,6 +284,7 @@
   </main>
 
   <script src="layout.js"></script>
+  <script src="decode.js"></script>
   <script src="colors.js"></script>
   <script src="index.js"></script>
 </body>

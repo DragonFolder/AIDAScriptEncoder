@@ -27,7 +27,7 @@
        http://localhost:8000/tests/browser.html. Opened straight from a file it can't look inside
        the page, and the background worker isn't allowed either. -->
   <h1>AIDAScript page tests</h1>
-  <p>Loads the page below and clicks through it. Nothing is downloaded. Takes about half a minute.</p>
+  <p>Loads the page below and clicks through it. Nothing is downloaded. Takes about a minute.</p>
   <button id="run" type="button">Run the tests</button>
   <div id="summary"></div>
   <ol id="results"></ol>
@@ -336,6 +336,46 @@
                    byId('setLineColor').value == '#000000' && byId('setPadding').value == '500' &&
                    byId('setFrameWidth').value == '1' && !byId('setTransparent').checked;
         return [ok, `padding ${byId('setPadding').value}, frame ${byId('setFrameWidth').value}, ${byId('layoutLabel').textContent}`];
+      });
+
+      await step('Read a picture: the PNG download reads back as the text, in the background', async () => {
+        await reload();
+        setText("the quick brown fox, \"jumps\"!\nover 12 lazy dogs: 741 (it's 2026-11-05)");
+        byId('quickRectangle').click();
+        await settled(app);
+        app.eval('pngBlob()').then(blob => app.eval('readPicture')(blob));
+        const status = () => byId('decodeStatus').textContent;
+        for (let i = 0; i < 300 && !/✓|Couldn|Gave|No drawing|wrong/.test(status()); i++) await sleep(100);
+        const read = byId('decodeText').value;
+        const ok = read == "the quick brown fox, “jumps”!\nover 12 lazy dogs: 741 (it's 2026-11-05)" &&
+                   status().startsWith('✓') && app.eval('decodeWorker') != null;
+        return [ok, JSON.stringify(read)];
+      });
+
+      await step('Read a picture: a hand-made picture, with a drawing beside the text left out', async () => {
+        // (tests/decoder_tests/AIDA_Script.png, drawn in Inkscape: its "over" has a j, N + E, for the v)
+        const blob = await (await fetch('decoder_tests/AIDA_Script.png')).blob();
+        byId('decodeStatus').textContent = '';
+        app.eval('readPicture')(blob);
+        const status = () => byId('decodeStatus').textContent;
+        for (let i = 0; i < 300 && !/✓|Couldn|Gave|No drawing|wrong/.test(status()); i++) await sleep(100);
+        const read = byId('decodeText').value;
+        const ok = read.replace(/\n/g, ' ') == 'the quick brown fox jumps ojer the lazy dog' && /Left out a part/.test(status());
+        return [ok, JSON.stringify(read)];
+      });
+
+      await step('Read a picture: an older picture (old punctuation, older spacing)', async () => {
+        // (tests/decoder_tests/AtlasSniperman_Reddit_comment.webp, made with an older version)
+        const blob = await (await fetch('decoder_tests/AtlasSniperman_Reddit_comment.webp')).blob();
+        byId('decodeStatus').textContent = '';
+        app.eval('readPicture')(blob);
+        const status = () => byId('decodeStatus').textContent;
+        for (let i = 0; i < 600 && !/✓|Couldn|Gave|No drawing|wrong/.test(status()); i++) await sleep(100);
+        const read = byId('decodeText').value.replace(/\n/g, ' ');
+        const ok = read == 'this is an interesting concept. looks like an alphabet with a kind of negative offset for some ' +
+                   "characters. there's no capital differentiation, fair. it does look a bit chaotic. and there's a lot of " +
+                   'design overlap at times. writing this i noticed "it" and "fai" have a similar emergent x structure';
+        return [ok, JSON.stringify(read.slice(0, 80)) + '…'];
       });
 
       await step('no errors on the page', () => [errors.length == 0, errors.slice(0, 2).join('; ')]);

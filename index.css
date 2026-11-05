@@ -121,3 +121,15 @@ summary:hover { color: var(--accent) !important; }
 .alphabet-tile svg { width: 2.5rem; height: 2.5rem; }
 .alphabet-tile span { color: var(--bs-body-color); font-weight: 600; line-height: 1; }
 button.alphabet-tile:hover, button.alphabet-tile:focus-visible { border-color: var(--accent); background: rgba(var(--accent-rgb), .1); }
+
+/* "Read a picture": folds like "How to read AIDAScript"; a picture can be dropped anywhere on it */
+.fold-card > summary { list-style-position: inside; }
+.fold-card[open] > summary { border-bottom: var(--bs-card-border-width) solid var(--bs-card-border-color); }
+.fold-card:not([open]) > summary { border-bottom: 0; border-radius: var(--bs-card-inner-border-radius); }
+.decode-drop { padding: .75rem; border: 2px dashed var(--bs-border-color); border-radius: .5rem; }
+#decoder.dragging .decode-drop { border-color: var(--accent); background: rgba(var(--accent-rgb), .1); }
+.decode-image {
+  display: block; max-width: 100%; max-height: 320px; margin: 0 auto; border-radius: .25rem;
+  background: repeating-conic-gradient(#d0d0d0 0 25%, #ffffff 0 50%) 0 0 / 16px 16px;   /* (for see-through pictures) */
+}
+#decodeText { font-family: var(--bs-font-monospace); }

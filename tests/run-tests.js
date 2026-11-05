@@ -356,6 +356,64 @@ test('digits, quote marks and every punctuation mark place and draw', () => {
 
 console.log('\nRandom colors');
 
+// The decoder (decode.js) reads pictures drawn the way the page draws the rectangle shape: each
+// line is drawn as the pixels within half the line width of it (like a browser, without the soft
+// edges), and the text read back must be the text drawn
+test('the decoder reads back what was drawn, in any size, with columns apart or touching', () => {
+  const reader = new Function(['layout.js', 'decode.js'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n') +
+    '\nreturn { CONFIG, placeLine, wrapLine, characterSegments, drawableText, readableChar, decodeAnyHow, pointSegmentDistance };')();
+  const picture = (text, { L = 20, width = 5, spacing = 10, padding = 30, scale = 1 }) => {
+    Object.assign(reader.CONFIG, { lineSize: L, maxLineLength: 400 });
+    const lines = [];
+    let column = 0;
+    for (const textLine of reader.drawableText(text).split('\n')) {
+      for (const chars of reader.wrapLine(textLine)) {
+        const x = padding + L + (2*L + spacing) * column++;
+        const positions = reader.placeLine(chars);
+        chars.forEach((ch, i) => {
+          for (const [x1, y1, x2, y2] of reader.characterSegments(ch, chars[i - 1])) {
+            lines.push([x + L*x1, padding + L*(positions[i] + y1), x + L*x2, padding + L*(positions[i] + y2)].map(v => v * scale));
+          }
+        });
+      }
+    }
+    const w = Math.ceil(Math.max(...lines.map(l => Math.max(l[0], l[2]))) + padding * scale);
+    const h = Math.ceil(Math.max(...lines.map(l => Math.max(l[1], l[3]))) + padding * scale);
+    const ink = new Uint8Array(w * h), r = width * scale / 2;
+    for (const l of lines) {
+      for (let y = Math.max(0, Math.floor(Math.min(l[1], l[3]) - r)); y <= Math.min(h - 1, Math.ceil(Math.max(l[1], l[3]) + r)); y++) {
+        for (let x = Math.max(0, Math.floor(Math.min(l[0], l[2]) - r)); x <= Math.min(w - 1, Math.ceil(Math.max(l[0], l[2]) + r)); x++) {
+          if (reader.pointSegmentDistance(x + 0.5, y + 0.5, l) <= r) ink[y*w + x] = 1;
+        }
+      }
+    }
+    return { ink, w, h };
+  };
+  const cases = [
+    ['the quick brown fox jumps over the lazy dog', {}],
+    ["it's 5 o'clock, \"really\"? yes! (maybe) - a/b; c: d...", { scale: 0.75 }],
+    ['741 431 916 701 953 781 771 711 71 93 14 41 82 52', { scale: 2 }],
+    ['0 00 909 1 4 7 3 6 9 2 8 5 a 628 b', { L: 30, width: 6 }],
+    ['hello\nworld, again and again and again', { width: 3 }],
+    ['oc od oe of og oh', { spacing: 2 }],
+    ['ab cd ef gh ij kl mn op qr st uv wx yz', { spacing: 0, scale: 1.37 }],
+  ];
+  let slowest = 0;
+  for (const [text, options] of cases) {
+    const { ink, w, h } = picture(text, options);
+    const started = Date.now();
+    const result = reader.decodeAnyHow(ink, w, h);
+    slowest = Math.max(slowest, Date.now() - started);
+    const wanted = [...reader.drawableText(text)].map(reader.readableChar).join('').replace(/"/g, '“').replace(/‘/g, "'");
+    // (a column break is a line break or a space: that's only guessed)
+    const flat = s => s.replace(/\n/g, ' ');
+    check(flat(result.text) == flat(wanted) && result.unread == 0,
+          `${JSON.stringify(options)}: drew ${JSON.stringify(wanted)}, read ${JSON.stringify(result.text)}`);
+    check(result.columns.every(c => c.readings.length == 1), `${JSON.stringify(text)} has look-alike readings`);
+  }
+  return `${cases.length} pictures, slowest ${slowest} ms`;
+});
+
 test('every palette is valid and readable', () => {
   let worst = Infinity;
   for (let i = 0; i < 5000; i++) {

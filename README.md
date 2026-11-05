@@ -16,7 +16,8 @@ Type into the text box and the drawing updates as you type. There's nothing to i
 - Long lines wrap into new columns, keeping words whole
 - Settings for size, spacing, colors and layout
 - **How to read AIDAScript**, at the bottom of the page: every letter, digit and punctuation mark (click a letter or digit to type it)
-- An experimental **compact** layout that packs the text into a tight blob, guided by a shape of your choice
+- A **compact** layout that packs the text into a tight blob, guided by a shape of your choice
+- **Read a picture** (experimental): turns a picture of AIDAScript back into text: a download from here, a screenshot of one, or one someone sent you. Choose it, drop it or paste it (Ctrl+V). For now it reads the rectangle shape, in any size and colors
 
 ## How AIDAScript works
 
@@ -90,7 +91,7 @@ Punctuation marks are small shapes that stand apart and never touch anything. Qu
 | Line size | 20 px | Length of one stroke; sets the size of everything |
 | Line spacing | 10 px | Gap between columns (rectangle only) |
 | Maximum height | 400 px | How tall a column may get before wrapping (rectangle only) |
-| Shape | Rectangle | **Rectangle**: plain columns. **Compact** (experimental): packs the text as tightly as possible, with overlapping columns that never touch |
+| Shape | Rectangle | **Rectangle**: plain columns. **Compact**: packs the text as tightly as possible, with overlapping columns that never touch |
 | Guide shape | Circle | Compact only: the shape to aim for: circle, rectangle, hexagon, diamond or triangle |
 | Width : height | 1 : 1 | Compact only: stretches the guide shape (a circle becomes an oval, the rectangle starts out square) |
 | Rotation | 0° | Compact only: turns the guide shape, up to 180° |
@@ -108,6 +109,25 @@ Punctuation marks are small shapes that stand apart and never touch anything. Qu
 
 In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview step through the best few different layouts for the same text.
 
+## Reading a picture
+
+**Read a picture** reads a picture of AIDAScript in the rectangle shape back into text. It doesn't need the settings the picture was made with: it finds the line size, the columns and their tops in the picture itself, so it also reads screenshots, smaller or bigger copies, other colors and see-through backgrounds. It reads hand-made pictures too (drawn in Inkscape, say), as long as they're drawn the way the page draws them. Anything else in the picture, like a drawing beside the text, is left out: it's drawn with a different line width, or doesn't read as AIDAScript.
+
+It doesn't undo the spacing rules. It lets the encoder do the placing: a column is read from the top down, and at each step every character is tried after the ones read so far, put exactly where the encoder would put it, and kept only if all of its lines lie on ink. Once a stretch of the column is out of reach of anything still to come, all of its ink must be explained. A column is read when all of its ink is. So whatever the encoder can tell apart, the reader can too, and a new spacing rule needs no change in `decode.js`.
+
+Before reading, the picture's ink is told from its background by how different each pixel's color is. Lines with a glow, a shadow or soft edges are cut down to their cores.
+
+Older pictures are read too, in up to three ways, each only for the columns the ways before couldn't read:
+1. as the page draws today;
+2. with the punctuation marks as they were drawn before November 2026: `+` for a period, `/` for a comma, `—` for an apostrophe, `=` for a quote mark, `‡` for an exclamation mark. A picture that reads with a 5 right after a word (the old period read as today's 5) is read this way throughout;
+3. loosely, for older versions with other spacing rules and for other encoders: each character may sit anywhere at least half a step below the one before, an extra line beside a stroke may mark an overlap, and words end where the picture's gaps (or steps) are bigger than usual. This can get a letter or a space wrong, and takes longer: up to half a minute for a picture that doesn't read in full.
+
+What it can't know:
+- Whether a column ended because the text had a line break or because the line was too long. It guesses: a line break if the next column's first word would have fit.
+- A space between two punctuation marks can draw the same as none (`’ “` and `’“`). It then keeps the space.
+- Letters are read in lower case.
+- A mark it doesn't know (a symbol from another encoder, say) stops the column there: the text then ends in "…".
+
 ## Project structure
 
 | File | Contents |
@@ -116,6 +136,8 @@ In the compact shape, the **‹ Layout 1 / N ›** buttons above the preview ste
 | `index.css` | Styling (teal accent on top of Bootstrap) |
 | `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
 | `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
+| `decode.js` | Reading a picture back into text (see [Reading a picture](#reading-a-picture)) |
+| `decode-worker.js` | Reads a picture in the background |
 | `colors.js` | The Random colors generator |
 | `index.js` | The page: settings, drawing, preview, downloads, sharing, the alphabet |
 | `tests/` | The tests (see [Testing](#testing)) |
@@ -128,10 +150,10 @@ To change how a letter looks, edit the `LETTERS` table in `layout.js`; for digit
 
 Two sets of checks, worth running before merging into `main`:
 
-- **`node tests/run-tests.js`** (about 5 seconds, needs [Node.js](https://nodejs.org/), nothing else): the layouts are the same as before (`tests/snapshots.json`), lines of different columns never touch, no guide shape makes the layout freeze, the guide shapes' sums agree, and random colors stay readable.
+- **`node tests/run-tests.js`** (about 5 seconds, needs [Node.js](https://nodejs.org/), nothing else): the layouts are the same as before (`tests/snapshots.json`), lines of different columns never touch, no guide shape makes the layout freeze, the guide shapes' sums agree, random colors stay readable, and the decoder reads back what was drawn (in several sizes, with columns apart and touching).
   - `--full` also tries every Surprise me combination (a few minutes).
   - `--update` saves the current layouts as the expected ones. Use it after changing the layout on purpose, once you've checked the result in the page.
-- **`tests/browser.html`**: open it through a local server (for example `python -m http.server` in the project folder, then `http://localhost:8000/tests/browser.html`) and press **Run the tests**. It clicks through the real page: drawing, the background worker, the frames, Random colors, Surprise me and Reset. Nothing is downloaded.
+- **`tests/browser.html`**: open it through a local server (for example `python -m http.server` in the project folder, then `http://localhost:8000/tests/browser.html`) and press **Run the tests**. It clicks through the real page: drawing, the background worker, the frames, Random colors, Surprise me, Reset and Read a picture (including a hand-made picture from `tests/decoder_tests`). Nothing is downloaded.
 
 ## Known limitations
 
@@ -139,4 +161,5 @@ Two sets of checks, worth running before merging into `main`:
 - A word whose picture is the same when flipped left to right looks exactly like its mirror word, unless something else in the column shows where the middle is: `ho` and `zw` (also `hio` and `zxw`). These are the only ones among all letter combinations up to four letters, and only "ho" is a word. The letters follow flag semaphore, so they're kept as they are.
 - In the rectangle shape, a single word taller than the maximum height runs past it.
 - The stroke width is fixed at 5 px.
+- **Read a picture** reads the rectangle shape only (not the compact shape or frames), and only pictures that are upright and not stretched. A long text can take several seconds. Columns that touch each other (Line spacing less than the line width) are harder: they often read, but not always.
 - The compact shape takes a moment with long text (about a second for 600 characters). The page stays usable meanwhile, showing "Arranging…". Opened straight from a file, some browsers don't allow the background worker, and the page then pauses instead.
