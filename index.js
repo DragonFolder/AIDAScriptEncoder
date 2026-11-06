@@ -25,6 +25,7 @@
 
 
 const byId = id => document.getElementById(id);
+const VERSION = new URL(document.currentScript.src).search;   // (the page's ?v=, for the worker too)
 
 // Copy the values from the "Settings" panel into CONFIG.
 // An empty or invalid number keeps the last valid value.
@@ -518,7 +519,7 @@ const WORKER_RETRIES = 3;
 function startWorker(){
   let worker;
   try {
-    worker = new Worker('layout-worker.js');
+    worker = new Worker('layout-worker.js' + VERSION);
   } catch {   // (not allowed at all, e.g. for a page opened straight from a file)
     workerFailed = true;
     return;

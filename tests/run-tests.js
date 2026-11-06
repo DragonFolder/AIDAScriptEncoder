@@ -397,6 +397,22 @@ test('every palette is valid and readable', () => {
 });
 
 
+test('both pages ask for the same release of every script and the stylesheet', () => {
+  const versions = new Set();
+  for (const page of ['index.html', 'sigils.html']) {
+    const html = fs.readFileSync(path.join(root, page), 'utf8');
+    const files = [...html.matchAll(/(?:src|href)="([a-z-]+\.(?:js|css))(\?v=[^"]*)?"/g)];
+    check(files.length > 0, `${page}: no scripts found`);
+    for (const [, file, version] of files) {
+      check(version, `${page}: ${file} has no ?v= (a browser could mix it up with an older one)`);
+      versions.add(version);
+    }
+  }
+  check(versions.size == 1, `the pages ask for different releases: ${[...versions].join(', ')}`);
+  return [...versions][0];
+});
+
+
 // -----------------------------------------------------------------------------
 // Snapshots and summary
 // -----------------------------------------------------------------------------

@@ -11,7 +11,7 @@
 // Request:  { id, lines, count: true }     Reply: { id, total } (see layoutCount)
 // =============================================================================
 
-importScripts('layout.js', 'sigil.js');
+importScripts('layout.js' + location.search, 'sigil.js' + location.search);   // (with the page's ?v=)
 
 const layouts = new Map();   // each line's layouts, kept (see SigilLayouts)
 

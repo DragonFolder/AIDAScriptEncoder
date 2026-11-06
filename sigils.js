@@ -4,23 +4,23 @@
 // The sigils are worked out in a background worker (sigil-worker.js), so the page stays
 // responsive with long text; without a worker (some browsers don't allow one for a page opened
 // straight from a file), on the page. They're kept for the text and layout they were made for, so
-// changing a color or the size only draws them again.
+// changing a color only draws them again.
 //
 // The settings are remembered for the next visit; the text isn't, and the downloads don't carry
 // it either: a sigil is meant to keep its sentence to itself.
 // =============================================================================
 
 const byId = id => document.getElementById(id);
+const VERSION = new URL(document.currentScript.src).search;   // (the page's ?v=, for the workers too)
 const NS = 'http://www.w3.org/2000/svg';
 const input = byId('sigilText');
 const preview = byId('sigilPreview');
-const SETTINGS = ['setSigilSize', 'setSigilLine', 'setSigilBg', 'setSigilTransparent', 'setSigilMarks', 'setSigilOutline', 'setSigilGuides'];
+const SETTINGS = ['setSigilLine', 'setSigilBg', 'setSigilTransparent', 'setSigilMarks', 'setSigilOutline', 'setSigilGuides'];
 const SETTINGS_KEY = 'aidascript.sigilSettings';
 
 function settings(){
-  const size = Number(byId('setSigilSize').value);
   return {
-    size: Number.isFinite(size) && size >= 10 && size <= 200 ? size : 50,
+    size: 50,   // (the circle's size, in pixels: the zoom makes the preview bigger or smaller)
     line: byId('setSigilLine').value,
     background: byId('setSigilBg').value,
     transparent: byId('setSigilTransparent').checked,
@@ -71,7 +71,7 @@ function workOut(wanted = layout){
   waiting = done;
   if (!onPage && !worker) {
     try {
-      worker = new Worker('sigil-worker.js');
+      worker = new Worker('sigil-worker.js' + VERSION);
       worker.onmessage = ({ data }) => { if (data.id == request) waiting(data); };
       worker.onerror = event => {   // (it didn't start: from now on, on the page)
         event.preventDefault();
@@ -107,7 +107,7 @@ function countLayouts(){
   };
   if (!onPage) {
     try {
-      counter = new Worker('sigil-worker.js');
+      counter = new Worker('sigil-worker.js' + VERSION);
       counter.onmessage = ({ data }) => { if (data.id == key) counted(data.total); };
       counter.onerror = event => { event.preventDefault(); counter = null; countOnPage(key, lines, counted); };
       counter.postMessage({ id: key, lines, count: true });
@@ -296,7 +296,7 @@ function draw(){
   png.prepare(text && svgText());
 }
 
-// Zoom: the preview only (the downloads are as big as Size says), remembered for the next visit
+// Zoom: the preview only (the downloads are always the same size), remembered for the next visit
 const ZOOMS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 const ZOOM_KEY = 'aidascript.sigilZoom';
 let zoom = 1;

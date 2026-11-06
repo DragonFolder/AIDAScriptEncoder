@@ -11,7 +11,7 @@
 // 'layouts' request (`layout` is null when there's none left).
 // =============================================================================
 
-importScripts('layout.js');
+importScripts('layout.js' + location.search);   // (with the page's ?v=)
 
 let found = null;   // the last 'layouts' request's result: { layouts, more }
 
