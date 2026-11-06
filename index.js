@@ -914,13 +914,7 @@ byId('zoomReset').onclick = () => { zoom = 1; applyZoom(); };
 // 8. Downloads
 // =============================================================================
 
-function download(blob, name){
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
+// (saving a file, on a phone too: see saveFile in save.js)
 
 // The drawing as SVG text, at its real size (without the preview's zoom)
 // The text that's drawn, as typed (blank lines and spaces at the ends left out)
@@ -972,7 +966,7 @@ function crc32(data){
 }
 
 byId('dlSvg').onclick = () =>
-  download(new Blob([svgString()], { type: 'image/svg+xml' }), 'image.svg');
+  saveFile(new Blob([svgString()], { type: 'image/svg+xml' }), 'image.svg');
 
 // The drawing as a PNG, twice its real size, with its text inside (see pngWithText)
 function pngBlob(){
@@ -990,7 +984,9 @@ function pngBlob(){
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString());
   });
 }
-byId('dlPng').onclick = async () => download(await pngBlob(), 'image.png');
+// (made ahead after every drawing, so a click can save it at once: see ReadyPng in save.js)
+const png = new ReadyPng(pngBlob);
+byId('dlPng').onclick = async () => saveFile(png.ready(svgString()) ?? await pngBlob(), 'image.png');
 
 // A button's label for a moment (to say how something went), then back
 function flash(button, text){
@@ -1099,6 +1095,7 @@ byId('copyLink').onclick = async () => {
 // drawing no longer matches it (so a reload doesn't undo what was changed since)
 const SETTINGS_KEY = 'aidascript.settings';
 function afterRender(){
+  png.prepare(svg ? svgString() : null);
   try {
     const changed = changedSettings();
     if (Object.keys(changed).length) localStorage.setItem(SETTINGS_KEY, JSON.stringify(changed));

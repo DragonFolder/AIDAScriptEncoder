@@ -293,6 +293,7 @@ function draw(){
     applyZoom();
   }
   updateButtons();
+  png.prepare(text && svgText());
 }
 
 // Zoom: the preview only (the downloads are as big as Size says), remembered for the next visit
@@ -318,8 +319,7 @@ byId('sigilZoomOut').onclick = () => changeZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(
 byId('sigilZoomReset').onclick = () => changeZoom(1);
 
 function updateButtons(){
-  byId('sigilSvg').disabled = !svg;
-  byId('sigilPng').disabled = !svg;
+  for (const id of ['sigilSvg', 'sigilPng', 'sigilCopyImage']) byId(id).disabled = !svg;
   // (the outline only matters with the marks, and on a background)
   byId('setSigilOutline').disabled = !byId('setSigilMarks').checked || byId('setSigilTransparent').checked;
 }
@@ -341,34 +341,53 @@ byId('sigilRandomColors').onclick = () => {
 // Downloads (without the sentence: see above)
 // -----------------------------------------------------------------------------
 
-function download(blob, name){
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
 // The downloads are drawn again, without the guides (see picture)
 function svgText(){
   return picture(false);
 }
 
-byId('sigilSvg').onclick = () => download(new Blob([svgText()], { type: 'image/svg+xml' }), 'sigil.svg');
+byId('sigilSvg').onclick = () => saveFile(new Blob([svgText()], { type: 'image/svg+xml' }), 'sigil.svg');
 
 // The PNG, twice the size of the downloaded picture (the preview is bigger with the guides)
-byId('sigilPng').onclick = () => {
-  const text = svgText();
-  const size = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    c.width = Math.ceil(Number(size.getAttribute('width')) * 2);
-    c.height = Math.ceil(Number(size.getAttribute('height')) * 2);
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    c.toBlob(blob => blob && download(blob, 'sigil.png'), 'image/png');
-  };
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text);
+function pngBlob(){
+  return new Promise((resolve, reject) => {
+    const text = svgText();
+    if (!text) { reject(new Error('nothing to draw')); return; }
+    const size = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = Math.ceil(Number(size.getAttribute('width')) * 2);
+      c.height = Math.ceil(Number(size.getAttribute('height')) * 2);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(blob => blob ? resolve(blob) : reject(new Error('no PNG')), 'image/png');
+    };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text);
+  });
+}
+// (made ahead after every drawing, so a click can save it at once: see ReadyPng in save.js)
+const png = new ReadyPng(pngBlob);
+byId('sigilPng').onclick = async () => saveFile(png.ready(svgText()) ?? await pngBlob(), 'sigil.png');
+
+// A button's label for a moment (to say how something went), then back
+function flash(button, text){
+  clearTimeout(button.flashTimer);
+  button.dataset.label ??= button.textContent;
+  button.textContent = text;
+  button.flashTimer = setTimeout(() => { button.textContent = button.dataset.label; }, 1600);
+}
+
+// "Copy image": the PNG on the clipboard, to paste anywhere (hidden where the browser can't do that).
+// (The clipboard is handed a promise of the image, so the copy still counts as part of the click.)
+byId('sigilCopyImage').hidden = !(window.ClipboardItem && navigator.clipboard?.write);
+byId('sigilCopyImage').onclick = async () => {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob() })]);
+    flash(byId('sigilCopyImage'), 'Copied!');
+  } catch {
+    flash(byId('sigilCopyImage'), "Couldn't copy");
+  }
 };
 
 
