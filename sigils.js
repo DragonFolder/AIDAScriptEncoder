@@ -380,14 +380,10 @@ function flash(button, text){
 
 // "Copy image": the PNG on the clipboard, to paste anywhere (hidden where the browser can't do that).
 // (The clipboard is handed a promise of the image, so the copy still counts as part of the click.)
-byId('sigilCopyImage').hidden = !(window.ClipboardItem && navigator.clipboard?.write);
-byId('sigilCopyImage').onclick = async () => {
-  try {
-    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob() })]);
-    flash(byId('sigilCopyImage'), 'Copied!');
-  } catch {
-    flash(byId('sigilCopyImage'), "Couldn't copy");
-  }
+byId('sigilCopyImage').hidden = !CAN_COPY;
+byId('sigilCopyImage').onclick = () => {
+  const ready = png.ready(svgText());
+  copyPng(ready ? Promise.resolve(ready) : pngBlob(), text => flash(byId('sigilCopyImage'), text));
 };
 
 

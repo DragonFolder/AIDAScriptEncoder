@@ -122,7 +122,7 @@ Just for fun: the **Sigils** page (in the navbar) turns a sentence into a sigil.
 | `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
 | `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
 | `colors.js` | The Random colors generator |
-| `save.js` | Saving the pictures (on an iPhone or iPad, through the share sheet) |
+| `save.js` | Saving and copying the pictures, on phones and inside other apps' browsers too |
 | `sigils.html`, `sigils.js` | The Sigils page |
 | `sigil.js` | How a sentence becomes a sigil (used by the Sigils page) |
 | `sigil-worker.js` | Works out sigils in the background |

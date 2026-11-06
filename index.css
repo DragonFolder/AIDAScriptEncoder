@@ -145,3 +145,16 @@ button.alphabet-tile:hover, button.alphabet-tile:focus-visible { border-color: v
 }
 .sigil-label mark { padding: 0 .05rem; border-radius: .2rem; background: var(--accent); color: #000; }
 .sigil-label .note { font-family: var(--bs-body-font-family); font-size: .8rem; color: #ccc; }
+
+/* The picture to save, over the page (see showPicture in save.js) */
+.save-picture {
+  width: min(32rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 1rem;
+  border: 1px solid var(--bs-border-color); border-radius: .5rem;
+  background: var(--bs-body-bg); color: var(--bs-body-color);
+}
+.save-picture::backdrop { background: rgba(0, 0, 0, .6); }
+.save-picture img {
+  display: block; max-width: 100%; max-height: 60vh; margin: 0 auto;
+  -webkit-touch-callout: default; user-select: auto;   /* (so press-and-hold offers to save it) */
+  background: repeating-conic-gradient(#ccc 0 25%, #fff 0 50%) 0 0 / 16px 16px;   /* (a transparent one shows as such) */
+}
