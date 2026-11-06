@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIDAScript Sigils</title>
+  <link rel="icon" type="image/svg+xml" href="../images/favicon.svg">
+  <meta name="description" content="Turn a sentence into a sigil made of AIDAScript's letters, and download it as an SVG or PNG image.">
+  <meta name="theme-color" content="#20c997">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+        crossorigin="anonymous">
+  <link rel="stylesheet" href="../styles/index.css?v=2026-11-06.2">
+</head>
+<body class="bg-body">
+
+  <nav class="navbar app-navbar bg-body-tertiary">
+    <div class="container app-container">
+      <span class="navbar-brand fw-semibold d-flex align-items-center gap-2"><img src="../images/logo.svg" alt="" class="app-logo">AIDA Script</span>
+      <!-- The encoder, and the generators made for fun (the same navbar on every page) -->
+      <div class="navbar-nav flex-row gap-3 app-pages">
+        <a class="nav-link" href="../index.html">Encoder</a>
+        <a class="nav-link active" aria-current="page" href="sigils.html">Sigils</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container app-container py-4">
+    <div class="row g-4">
+
+      <!-- The text and settings -->
+      <div class="col-xl-5">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <label for="sigilText" class="form-label fw-semibold">Sentence</label>
+            <textarea id="sigilText" class="form-control" rows="3" placeholder="Type a sentence..."></textarea>
+            <div class="form-text">Each line becomes a sigil of its own. Only letters are drawn.</div>
+
+            <!-- Folded on small screens to begin with (see sigils.js), and remembered open or folded -->
+            <details id="sigilSettingsBox" class="mt-3" open>
+              <summary class="fw-semibold small text-body-secondary">Settings</summary>
+            <div class="row g-3 mt-1" id="sigilSettings">
+              <div class="col-6 col-md-3 col-xl-6">
+                <label for="setSigilLine" class="form-label small">Line color</label>
+                <input id="setSigilLine" type="color" class="form-control form-control-sm form-control-color w-100" value="#000000">
+              </div>
+              <div class="col-6 col-md-3 col-xl-6">
+                <label for="setSigilBg" class="form-label small">Background color</label>
+                <input id="setSigilBg" type="color" class="form-control form-control-sm form-control-color w-100" value="#ffffff">
+              </div>
+              <div class="col-6 col-md-3 col-xl-6 d-flex align-items-end">
+                <div class="form-check mb-1">
+                  <input id="setSigilTransparent" type="checkbox" class="form-check-input">
+                  <label for="setSigilTransparent" class="form-check-label small">Transparent</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <button id="sigilRandomColors" type="button" class="btn btn-sm btn-outline-primary">🎲 Random colors</button>
+                <span id="sigilColorsName" class="small text-body-secondary ms-2" aria-live="polite"></span>
+              </div>
+              <div class="col-12 d-flex flex-wrap gap-3">
+                <div class="form-check">
+                  <input id="setSigilMarks" type="checkbox" class="form-check-input" checked>
+                  <label for="setSigilMarks" class="form-check-label small">Start and end marks (the dot and the crossbar)</label>
+                </div>
+                <div class="form-check">
+                  <input id="setSigilOutline" type="checkbox" class="form-check-input" checked>
+                  <label for="setSigilOutline" class="form-check-label small">Outline around the dot</label>
+                </div>
+                <div class="form-check">
+                  <input id="setSigilGuides" type="checkbox" class="form-check-input">
+                  <label for="setSigilGuides" class="form-check-label small">Show the octagons (a guide: not downloaded)</label>
+                </div>
+              </div>
+            </div>
+            </details>
+          </div>
+        </div>
+
+        <details class="card shadow-sm mt-4 fold-card">
+          <summary class="card-header fw-semibold">How a sigil is made</summary>
+          <div class="card-body small">
+            <p>Each letter is a line between two of eight points on a circle (its two semaphore directions).
+              Long words split into overlapping circles, and the words of a sentence join into one figure.
+              <strong>‹ Layout ›</strong> tries other ways of putting it together.</p>
+            <p class="mb-0">The <strong>dot</strong> marks the first letter, the <strong>crossbar</strong> the last.
+              Downloads don't contain your sentence.</p>
+          </div>
+        </details>
+      </div>
+
+      <!-- The sigils -->
+      <div class="col-xl-7">
+        <div class="card shadow-sm">
+          <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-semibold">Sigil</span>
+              <span id="sigilBusy" class="small text-body-secondary" role="status" hidden>Drawing… <span class="spinner-border spinner-border-sm ms-1" aria-hidden="true"></span></span>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Try another layout">
+              <button id="sigilLayoutPrev" type="button" class="btn btn-outline-secondary" aria-label="Previous layout" title="Previous layout">‹</button>
+              <span id="sigilLayoutLabel" class="btn btn-outline-secondary disabled layout-label">Layout 1</span>
+              <button id="sigilLayoutNext" type="button" class="btn btn-outline-secondary" aria-label="Next layout" title="Try another layout">›</button>
+            </div>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Zoom">
+              <button id="sigilZoomOut" type="button" class="btn btn-outline-secondary" aria-label="Zoom out">−</button>
+              <button id="sigilZoomReset" type="button" class="btn btn-outline-secondary" title="Reset zoom to 100%">100%</button>
+              <button id="sigilZoomIn" type="button" class="btn btn-outline-secondary" aria-label="Zoom in">+</button>
+            </div>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Download">
+              <button id="sigilSvg" type="button" class="btn btn-outline-primary">Download SVG</button>
+              <button id="sigilPng" type="button" class="btn btn-primary">Download PNG</button>
+              <button id="sigilGif" type="button" class="btn btn-outline-primary" title="The lines written one by one, in the order of the letters">Download GIF</button>
+            </div>
+            <button id="sigilPlay" type="button" class="btn btn-sm btn-outline-secondary" title="Watch it being written, letter by letter">▶ Play</button>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Copy">
+              <button id="sigilCopyImage" type="button" class="btn btn-outline-primary" title="Copy the PNG, to paste anywhere">Copy image</button>
+            </div>
+            </div>
+          </div>
+          <div class="card-body overflow-auto">
+            <div id="sigilPreview" class="sigil-preview"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ?v=: the release, so a browser never mixes a new file with an old one it kept (bump it in
+       index.html and pages/sigils.html with every change; the tests check they agree) -->
+  <script src="../scripts/layout.js?v=2026-11-06.2"></script>
+  <script src="../scripts/colors.js?v=2026-11-06.2"></script>
+  <script src="../scripts/save.js?v=2026-11-06.2"></script>
+  <script src="../scripts/gif.js?v=2026-11-06.2"></script>
+  <script src="../scripts/sigil.js?v=2026-11-06.2"></script>
+  <script src="../scripts/sigils.js?v=2026-11-06.2"></script>
+</body>
+</html>

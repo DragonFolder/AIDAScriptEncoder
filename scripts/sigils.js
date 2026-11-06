@@ -11,7 +11,8 @@
 // =============================================================================
 
 const byId = id => document.getElementById(id);
-const VERSION = new URL(document.currentScript.src).search;   // (the page's ?v=, for the workers too)
+const SCRIPT = document.currentScript.src;          // (this file's address: the worker is next to it)
+const VERSION = new URL(SCRIPT).search;               // (the page's ?v=, for the workers too)
 const NS = 'http://www.w3.org/2000/svg';
 const input = byId('sigilText');
 const preview = byId('sigilPreview');
@@ -71,7 +72,7 @@ function workOut(wanted = layout){
   waiting = done;
   if (!onPage && !worker) {
     try {
-      worker = new Worker('sigil-worker.js' + VERSION);
+      worker = new Worker(new URL('sigil-worker.js' + VERSION, SCRIPT));
       worker.onmessage = ({ data }) => { if (data.id == request) waiting(data); };
       worker.onerror = event => {   // (it didn't start: from now on, on the page)
         event.preventDefault();
@@ -107,7 +108,7 @@ function countLayouts(){
   };
   if (!onPage) {
     try {
-      counter = new Worker('sigil-worker.js' + VERSION);
+      counter = new Worker(new URL('sigil-worker.js' + VERSION, SCRIPT));
       counter.onmessage = ({ data }) => { if (data.id == key) counted(data.total); };
       counter.onerror = event => { event.preventDefault(); counter = null; countOnPage(key, lines, counted); };
       counter.postMessage({ id: key, lines, count: true });
@@ -172,10 +173,12 @@ let svg = null;   // the drawing now in the preview (for the downloads)
 // For the preview only, never downloaded:
 // - with `guides`, each circle's octagon is drawn faintly behind (the picture grows to show them whole);
 // - with `pointing`, every line gets a wider, invisible copy on top, to point at (see showLetters).
-function picture(guides, pointing = false){
+// With `upTo`, only what's written by then (see writing): for the animation.
+function picture(guides, pointing = false, upTo = null){
   const { size, line, background, transparent, marks, outline } = settings();
   const sigils = made.sigils.filter(s => s);
   if (!sigils.length) return null;
+  const order = upTo == null ? null : writing(sigils);
   const gap = SIGIL.R, pad = SIGIL.R * 0.4;
   const height = Math.max(...sigils.map(s => s.box.height));
   const octagon = ([cx, cy]) => SIGIL_POINTS.map((_, i) => [cx + SIGIL.R * Math.cos(pointAngle(i)), cy + SIGIL.R * Math.sin(pointAngle(i))]);
@@ -185,13 +188,27 @@ function picture(guides, pointing = false){
     const dx = x - s.box.x, dy = pad + (height - s.box.height) / 2 - s.box.y;
     if (pointing) hits += `<g transform="translate(${dx},${dy})">` + s.lines.map(([[x1, y1], [x2, y2]], i) =>
       `<line class="hit" data-sigil="${k}" data-line="${i}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join('') + '</g>';
-    const lines = s.lines.map(([[x1, y1], [x2, y2]]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join('');
+    let lines, dotShown = true, barShown = true;
+    if (!order) {
+      lines = s.lines.map(([[x1, y1], [x2, y2]]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`).join('');
+    } else {   // (each line as far as it's written: from where the pen starts, `done` of the way)
+      const steps = order.steps.filter(step => step.sigil == k);
+      const done = step => Math.min(1, Math.max(0, upTo - step.at));
+      lines = steps.map(step => {
+        const f = done(step);
+        if (f <= 0) return '';
+        const [[x1, y1], [x2, y2]] = step.reverse ? [...s.lines[step.line]].reverse() : s.lines[step.line];
+        return `<line x1="${x1}" y1="${y1}" x2="${x1 + (x2 - x1) * f}" y2="${y1 + (y2 - y1) * f}"/>`;
+      }).join('');
+      dotShown = done(steps.find(step => step.first) ?? steps[0]) >= 1;
+      barShown = steps.every(step => done(step) >= 1);
+    }
     const [[b1, b2], [b3, b4]] = s.bar;
     // (the dot can get a thin edge in the background color, to stand apart from lines near it)
     const edge = outline && !transparent ? ` stroke="${background}" stroke-width="2"` : '';
     const marked = !marks ? '' :
-      `<line x1="${b1}" y1="${b2}" x2="${b3}" y2="${b4}" stroke="${line}" stroke-width="4" stroke-linecap="round"/>` +
-      `<circle cx="${s.dot.at[0]}" cy="${s.dot.at[1]}" r="${s.dot.r}" fill="${line}"${edge}/>`;
+      (barShown ? `<line x1="${b1}" y1="${b2}" x2="${b3}" y2="${b4}" stroke="${line}" stroke-width="4" stroke-linecap="round"/>` : '') +
+      (dotShown ? `<circle cx="${s.dot.at[0]}" cy="${s.dot.at[1]}" r="${s.dot.r}" fill="${line}"${edge}/>` : '');
     if (guides) {
       for (const centre of s.circles) {
         const points = octagon(centre);
@@ -213,6 +230,40 @@ function picture(guides, pointing = false){
          `${back}${guideLayer}${body}` +
          (pointing ? `<g class="pointing"></g><g class="hits" stroke="transparent" stroke-width="16" stroke-linecap="round">${hits}</g>` : '') +
          `</svg>`;
+}
+
+// The order the lines are written in, for the animation: sigil by sigil, each line when its
+// first letter comes up in the sentence (a letter used again was drawn already), and a stroke
+// that only joins two groups once both are there. The pen starts each line at the end nearest
+// where it left off. Returns { steps: [{ sigil, line, reverse, first, at }], total }: a step is
+// written from `at` to `at` + 1 (`first`: the first letter's line, which carries the dot).
+function writing(sigils){
+  const steps = [];
+  sigils.forEach((s, k) => {
+    const near = (p, [[x1, y1], [x2, y2]]) => {   // (how far a point is from a line)
+      const dx = x2 - x1, dy = y2 - y1, t = Math.max(0, Math.min(1, ((p[0] - x1) * dx + (p[1] - y1) * dy) / (dx * dx + dy * dy || 1)));
+      return Math.hypot(p[0] - x1 - t * dx, p[1] - y1 - t * dy);
+    };
+    const keys = s.lines.map((_, i) => {
+      const { word, letters } = s.owners[i];
+      return letters.length ? word * 1000 + Math.min(...letters) : null;
+    });
+    // (a joining stroke: right after the later of the two groups it joins has started)
+    const keyed = s.lines.map((l, i) => {
+      if (keys[i] != null) return keys[i];
+      const ends = l.map(p => Math.min(...keys.map((key, j) => key != null && near(p, s.lines[j]) < 1.5 ? key : Infinity)));
+      return Math.max(...ends.filter(e => e < Infinity), -1) + 0.5;
+    });
+    const firstKey = Math.min(...keys.filter(key => key != null));
+    let pen = null;
+    for (const i of s.lines.map((_, i) => i).sort((a, b) => keyed[a] - keyed[b])) {
+      const [p, q] = s.lines[i];
+      const reverse = pen ? Math.hypot(q[0] - pen[0], q[1] - pen[1]) < Math.hypot(p[0] - pen[0], p[1] - pen[1]) : false;
+      pen = reverse ? p : q;
+      steps.push({ sigil: k, line: i, reverse, first: keys[i] == firstKey, at: steps.length });
+    }
+  });
+  return { steps, total: steps.length };
 }
 
 // Pointing at a line (or tapping it) shows which letters it stands for: the line in the accent
@@ -278,6 +329,7 @@ preview.addEventListener('click', event => {   // (a tap, on a touch screen)
 
 // The preview: the picture, with the guides if asked for
 function draw(){
+  stopPlaying();
   hideLetters();
   const text = picture(byId('setSigilGuides').checked, true);
   preview.replaceChildren();
@@ -319,7 +371,7 @@ byId('sigilZoomOut').onclick = () => changeZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(
 byId('sigilZoomReset').onclick = () => changeZoom(1);
 
 function updateButtons(){
-  for (const id of ['sigilSvg', 'sigilPng', 'sigilCopyImage']) byId(id).disabled = !svg;
+  for (const id of ['sigilSvg', 'sigilPng', 'sigilCopyImage', 'sigilGif', 'sigilPlay']) byId(id).disabled = !svg;
   // (the outline only matters with the marks, and on a background)
   byId('setSigilOutline').disabled = !byId('setSigilMarks').checked || byId('setSigilTransparent').checked;
 }
@@ -384,6 +436,97 @@ byId('sigilCopyImage').hidden = !CAN_COPY;
 byId('sigilCopyImage').onclick = () => {
   const ready = png.ready(svgText());
   copyPng(ready ? Promise.resolve(ready) : pngBlob(), text => flash(byId('sigilCopyImage'), text));
+};
+
+
+// -----------------------------------------------------------------------------
+// Writing it out: "Play" in the preview, and "Download GIF" (see writing)
+// -----------------------------------------------------------------------------
+
+const WRITE_LINE = 150;   // how long one line takes to write, in milliseconds
+const WRITE_HOLD = 1500;  // how long the whole sigil stays before it starts again (the GIF), ms
+const WRITE_START = 400;  // how long the empty picture shows first, ms
+
+let playing = null;   // the running animation's timer (null: not playing)
+function stopPlaying(){
+  if (!playing) return;
+  clearTimeout(playing);
+  playing = null;
+  byId('sigilPlay').textContent = '▶ Play';
+}
+byId('sigilPlay').onclick = () => {
+  if (playing) { stopPlaying(); draw(); return; }
+  hideLetters();
+  const total = writing(made.sigils.filter(s => s)).total, started = performance.now();
+  byId('sigilPlay').textContent = '■ Stop';
+  const frame = () => {
+    const t = (performance.now() - started - WRITE_START) / WRITE_LINE;
+    preview.innerHTML = picture(byId('setSigilGuides').checked, false, Math.max(0, t));
+    svg = preview.querySelector('svg');
+    svg.classList.toggle('transparent', settings().transparent);
+    applyZoom();
+    if (t < total + 1000 / WRITE_LINE) playing = setTimeout(frame, 33);   // (about 30 pictures a second)
+    else { playing = null; byId('sigilPlay').textContent = '▶ Play'; draw(); }   // (a second at the end, then as before)
+  };
+  frame();
+};
+
+// The GIF: three frames per line, twice the size of the picture (like the PNG). Its colors are
+// the background, the line color and the shades between them (the edges of the lines); with a
+// transparent background, see-through and the line color.
+const GIF_STEPS = 3, GIF_SHADES = 32;
+async function gifBlob(){
+  const sigils = made.sigils.filter(s => s);
+  const total = writing(sigils).total;
+  const { line, background, transparent } = settings();
+  const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const ink = rgb(line), paper = rgb(background);
+  const palette = transparent ? [[0, 0, 0], ink]
+    : Array.from({ length: GIF_SHADES }, (_, i) => paper.map((c, j) => Math.round(c + (ink[j] - c) * i / (GIF_SHADES - 1))));
+  const span = ink.map((c, j) => c - paper[j]), spanSq = span.reduce((a, b) => a + b * b, 0) || 1;
+
+  const first = new DOMParser().parseFromString(picture(false), 'image/svg+xml').documentElement;
+  const width = Math.ceil(Number(first.getAttribute('width')) * 2), height = Math.ceil(Number(first.getAttribute('height')) * 2);
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  const render = text => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => { context.clearRect(0, 0, width, height); context.drawImage(img, 0, 0, width, height); resolve(); };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text);
+  });
+
+  const frames = [], times = [0];
+  for (let n = 1; n <= total * GIF_STEPS; n++) times.push(n / GIF_STEPS);
+  for (const [n, t] of times.entries()) {
+    await render(picture(false, false, t));
+    const data = context.getImageData(0, 0, width, height).data, pixels = new Uint8Array(width * height);
+    for (let p = 0, i = 0; p < pixels.length; p++, i += 4) {
+      if (transparent) { pixels[p] = data[i + 3] >= 128 ? 1 : 0; continue; }
+      const d = (data[i] - paper[0]) * span[0] + (data[i + 1] - paper[1]) * span[1] + (data[i + 2] - paper[2]) * span[2];
+      pixels[p] = Math.max(0, Math.min(GIF_SHADES - 1, Math.round(d / spanSq * (GIF_SHADES - 1))));
+    }
+    const delay = n == 0 ? WRITE_START : n == times.length - 1 ? WRITE_HOLD : WRITE_LINE / GIF_STEPS;
+    frames.push({ pixels, delay: delay / 10 });
+    if (n % 10 == 0) await new Promise(resolve => setTimeout(resolve));   // (let the page breathe)
+  }
+  return makeGif(frames, width, height, palette, transparent ? 0 : null);
+}
+byId('sigilGif').onclick = async () => {
+  const button = byId('sigilGif');
+  if (button.dataset.busy) return;
+  button.dataset.busy = '1';
+  const label = button.textContent;
+  button.textContent = 'Making GIF…';
+  try {
+    saveFile(await gifBlob(), 'sigil.gif');
+  } catch {
+    flash(button, "Couldn't make it");
+  } finally {
+    delete button.dataset.busy;
+    if (button.textContent == 'Making GIF…') button.textContent = label;
+  }
 };
 
 

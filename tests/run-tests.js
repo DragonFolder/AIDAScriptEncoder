@@ -24,9 +24,9 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const load = (file, names) =>
   new Function(fs.readFileSync(path.join(root, file), 'utf8') + `\nreturn { ${names.join(', ')} };`)();
-const layout = load('layout.js', ['CONFIG', 'GUIDE_SHAPES', 'guideShape', 'compactLayouts', 'placeLine', 'wrapLine',
+const layout = load('scripts/layout.js', ['CONFIG', 'GUIDE_SHAPES', 'guideShape', 'compactLayouts', 'placeLine', 'wrapLine',
   'glyph', 'segmentDistance', 'meetsAtMiddle', 'columnClearance', 'drawableText', 'characterSegments', 'crossesDiamond', 'readableChar']);
-const colors = load('colors.js', ['randomColors', 'contrast']);
+const colors = load('scripts/colors.js', ['randomColors', 'contrast']);
 const { CONFIG } = layout;
 
 const FULL = process.argv.includes('--full');
@@ -358,10 +358,10 @@ test('digits, quote marks and every punctuation mark place and draw', () => {
 
 console.log('\nRandom colors');
 
-// The Sigils page's generator (sigil.js): every word one connected figure, with no triangle smaller
+// The Sigils page's generator (scripts/sigil.js): every word one connected figure, with no triangle smaller
 // than TINY; sentences drawn the same every time; text with no letters drawn as nothing
 test('sigils: every word is one figure with no tiny triangles; sentences come out the same every time', () => {
-  const sigil = new Function(['layout.js', 'sigil.js'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n') +
+  const sigil = new Function(['scripts/layout.js', 'scripts/sigil.js'].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n') +
     '\nreturn { sigilOf, sigilWord, sigilWords, segment, groupCount, hasTinyTriangle };')();
   const words = ['magic', 'sigil', 'spirit', 'love', 'confidence', 'aidascript', 'shadowfolder', 'transformation',
                  'manifestation', 'serendipity', 'abundance', 'intelligence', 'wolf', 'sun', 'star', 'courage'];
@@ -399,9 +399,10 @@ test('every palette is valid and readable', () => {
 
 test('both pages ask for the same release of every script and the stylesheet', () => {
   const versions = new Set();
-  for (const page of ['index.html', 'sigils.html']) {
+  for (const page of ['index.html', 'pages/sigils.html']) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
-    const files = [...html.matchAll(/(?:src|href)="([a-z-]+\.(?:js|css))(\?v=[^"]*)?"/g)];
+    // (every script and stylesheet of our own: not the ones from other sites)
+    const files = [...html.matchAll(/(?:src|href)="(?!https?:)([^"?]+\.(?:js|css))(\?v=[^"]*)?"/g)];
     check(files.length > 0, `${page}: no scripts found`);
     for (const [, file, version] of files) {
       check(version, `${page}: ${file} has no ?v= (a browser could mix it up with an older one)`);

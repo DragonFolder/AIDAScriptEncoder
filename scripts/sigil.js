@@ -1,5 +1,5 @@
 // =============================================================================
-// AIDAScript sigils: a sentence drawn as one sigil, for the Sigils page (sigils.html).
+// AIDAScript sigils: a sentence drawn as one sigil, for the Sigils page (pages/sigils.html).
 //
 // Every letter of AIDAScript is two of the eight directions (flag semaphore, see LETTERS in
 // layout.js, loaded first). Here the eight directions are eight points around a circle, and each

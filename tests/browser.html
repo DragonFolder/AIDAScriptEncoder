@@ -341,7 +341,7 @@
       await step('no errors on the page', () => [errors.length == 0, errors.slice(0, 2).join('; ')]);
 
       await step('the Sigils page draws a sigil per line, in the background, in another layout on ›', async () => {
-        frame.src = '../sigils.html?test=' + Date.now();
+        frame.src = '../pages/sigils.html?test=' + Date.now();
         await new Promise(resolve => frame.onload = resolve);
         const page = frame.contentWindow, find = id => page.document.getElementById(id);
         const sigilErrors = [];

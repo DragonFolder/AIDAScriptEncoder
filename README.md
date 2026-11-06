@@ -117,21 +117,26 @@ Just for fun: the **Sigils** page (in the navbar) turns a sentence into a sigil.
 
 | File | Contents |
 |---|---|
-| `index.html` | Page layout and settings panel |
-| `index.css` | Styling (teal accent on top of Bootstrap) |
-| `layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
-| `layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
-| `colors.js` | The Random colors generator |
-| `save.js` | Saving and copying the pictures, on phones and inside other apps' browsers too |
-| `sigils.html`, `sigils.js` | The Sigils page |
-| `sigil.js` | How a sentence becomes a sigil (used by the Sigils page) |
-| `sigil-worker.js` | Works out sigils in the background |
-| `index.js` | The page: settings, drawing, preview, downloads, sharing, the alphabet |
+| `index.html` | The encoder: page layout and settings panel |
+| `pages/sigils.html` | The Sigils page |
+| `sigils.html` | Sends the Sigils page's old address on to `pages/sigils.html` |
+| `styles/index.css` | Styling for both pages (teal accent on top of Bootstrap) |
+| `scripts/index.js` | The encoder: settings, drawing, preview, downloads, sharing, the alphabet |
+| `scripts/layout.js` | Where every character goes: letter shapes, spacing rules, and both layouts |
+| `scripts/layout-worker.js` | Runs the compact layout in the background, so the page never freezes |
+| `scripts/colors.js` | The Random colors generator |
+| `scripts/save.js` | Saving and copying the pictures, on phones and inside other apps' browsers too |
+| `scripts/sigils.js` | The Sigils page: settings, preview, downloads |
+| `scripts/sigil.js` | How a sentence becomes a sigil |
+| `scripts/sigil-worker.js` | Works out sigils in the background |
+| `scripts/gif.js` | Makes the animated GIF of a sigil being written |
 | `tests/` | The tests (see [Testing](#testing)) |
 | `images/` | The logo, the tab icon (`favicon.svg`), the picture shown when a link is shared (`social-preview.png`), and the letter, digit and punctuation pictures in this README |
 | `tools/make-letter-images.js` | Redraws those pictures (`node tools/make-letter-images.js`) |
 
-To change how a letter looks, edit the `LETTERS` table in `layout.js`; for digits, the `DIGITS` table; for punctuation (and the digits 0 and 5), the `PUNCTUATION` table. Then run `node tools/make-letter-images.js` to redraw the pictures above.
+The pages load their scripts and stylesheet with `?v=` and a release name, so a browser never mixes new files with old ones it kept: change it in both pages with every release (the tests check they agree).
+
+To change how a letter looks, edit the `LETTERS` table in `scripts/layout.js`; for digits, the `DIGITS` table; for punctuation (and the digits 0 and 5), the `PUNCTUATION` table. Then run `node tools/make-letter-images.js` to redraw the pictures above.
 
 ## Testing
 

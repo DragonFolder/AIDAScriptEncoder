@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const source = fs.readFileSync(path.join(root, 'layout.js'), 'utf8');
+const source = fs.readFileSync(path.join(root, 'scripts', 'layout.js'), 'utf8');
 const { LETTERS, PUNCTUATION, TICKED, characterSegments } =
   new Function(source + '\nreturn { LETTERS, PUNCTUATION, TICKED, characterSegments };')();
 const DIGITS = '1234567890';   // (all drawn from the PUNCTUATION table)
